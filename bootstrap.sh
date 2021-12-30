@@ -11,7 +11,7 @@ git clone https://github.com/jerch/xterm-addon-image
 cd ..
 
 # overwrite files in base repo to have full test integration
-cp -avx overwrite/* .
+cp -avx addons/xterm-addon-image/overwrite/* .
 
 # init all
 yarn
