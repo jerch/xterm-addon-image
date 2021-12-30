@@ -9,11 +9,23 @@ Image output in xterm.js.
 ⚠️ This is an experimental addon, that is still under construction. ⚠️
 
 
-### Install
+### Install from npm (not yet released)
 
 ```bash
 npm install --save xterm-addon-image
 ```
+
+### Clone & Build
+
+The addon integrates tightly with the xterm.js base repo, esp. for tests and the demo.
+To properly set up all needed resources see `bootstrap.sh` or run it directly with
+
+```bash
+curl -s https://raw.githubusercontent.com/jerch/xterm-addon-image/master/bootstrap.sh | bash
+```
+
+The addon sources and npm package definition resides under `addons/xterm-addon-image`.
+
 
 ### Usage
 
