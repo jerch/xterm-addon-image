@@ -53,7 +53,6 @@ export interface ISixelInitMessage {
   type: MessageType.SIXEL_INIT;
   payload: {
     fillColor: number;
-    paletteType: PaletteType;
     limit: number;
   };
 }

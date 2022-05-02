@@ -117,8 +117,6 @@ describe.only('ImageAddon', () => {
         sixelScrolling: true,
         sixelPaletteLimit: 512,  // set to 512 to get example image working
         sixelSizeLimit: 25000000,
-        sixelPrivatePalette: true,
-        sixelDefaultPalette: 'VT340-COLOR',
         storageLimit: 128,
         showPlaceholder: true
       };
@@ -134,8 +132,6 @@ describe.only('ImageAddon', () => {
         sixelScrolling: false,
         sixelPaletteLimit: 1024,
         sixelSizeLimit: 1000,
-        sixelPrivatePalette: false,
-        sixelDefaultPalette: 'VT340-GREY',
         storageLimit: 10,
         showPlaceholder: false
       };

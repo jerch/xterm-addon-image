@@ -3,14 +3,22 @@
  * @license MIT
  */
 
-import { AckPayload, IImageWorkerMessage, IPostMessage, MessageType, PaletteType } from '../src/WorkerTypes';
+import { AckPayload, IImageWorkerMessage, IPostMessage, MessageType } from '../src/WorkerTypes';
 
 import { Decoder } from 'sixel/lib/Decoder';
-import { PALETTE_VT340_COLOR, PALETTE_VT340_GREY, PALETTE_ANSI_256 } from 'sixel/lib/Colors';
+import { PALETTE_ANSI_256, PALETTE_VT340_COLOR } from 'sixel/lib/Colors';
 
 
 // narrow types for postMessage to our protocol
 declare const postMessage: IPostMessage;
+
+
+// always free decoder ressources after decoding if it exceeds this limit
+const MEM_PERMA_LIMIT = 4194304; // 1024 pixels * 1024 pixels * 4 channels = 4MB
+
+// custom default palette: VT340 (lower 16 colors) + ANSI256 (up to 256) + zeroed (up to 4096)
+const DEFAULT_PALETTE = PALETTE_ANSI_256;
+DEFAULT_PALETTE.set(PALETTE_VT340_COLOR);
 
 
 let imageBuffer: ArrayBuffer | undefined;
@@ -19,9 +27,6 @@ let dec: Decoder;
 
 // setup options loaded from ACK
 let pixelLimit = 0;
-
-// always free decoder ressources after decoding if it exceeds this limit
-const MEM_PERMA_LIMIT = 4194304; // 1024 pixels * 1024 pixels * 4 channels = 4MB
 
 
 function messageHandler(event: MessageEvent<IImageWorkerMessage>): void {
@@ -75,19 +80,13 @@ function messageHandler(event: MessageEvent<IImageWorkerMessage>): void {
       break;
     case MessageType.SIXEL_INIT:
       sizeExceeded = false;
-      const { fillColor, paletteType, limit } = data.payload;
-      const palette = paletteType === PaletteType.SHARED
-        ? null
-        : paletteType === PaletteType.VT340_COLOR
-          ? PALETTE_VT340_COLOR
-          : paletteType === PaletteType.VT340_GREY
-            ? PALETTE_VT340_GREY
-            : PALETTE_ANSI_256;
-      dec.init(fillColor, palette, limit);
+      const { fillColor, limit } = data.payload;
+      // palette null - always shared from previous decoding
+      dec.init(fillColor, null, limit);
       break;
     case MessageType.ACK:
       pixelLimit = data.options?.pixelLimit || 0;
-      dec = new Decoder({ memoryLimit: pixelLimit * 4 });
+      dec = new Decoder({ memoryLimit: pixelLimit * 4, palette: DEFAULT_PALETTE });
       postMessage({ type: MessageType.ACK, payload: AckPayload.ALIVE, options: null });
       break;
   }

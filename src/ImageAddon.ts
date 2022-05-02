@@ -7,7 +7,7 @@ import { ITerminalAddon, IDisposable } from 'xterm';
 import { ImageRenderer } from './ImageRenderer';
 import { ImageStorage, CELL_SIZE_DEFAULT } from './ImageStorage';
 import { SixelHandler } from './SixelHandler';
-import { ITerminalExt, IImageAddonOptions } from './Types';
+import { ITerminalExt, IImageAddonOptions, IResetHandler } from './Types';
 import { WorkerManager } from './WorkerManager';
 
 
@@ -21,8 +21,6 @@ const DEFAULT_OPTIONS: IImageAddonOptions = {
   sixelScrolling: true,
   sixelPaletteLimit: 256,
   sixelSizeLimit: 25000000,
-  sixelPrivatePalette: true,
-  sixelDefaultPalette: 'VT340-COLOR',
   storageLimit: 128,
   showPlaceholder: true
 };
@@ -58,6 +56,7 @@ export class ImageAddon implements ITerminalAddon {
   private _disposables: IDisposable[] = [];
   private _terminal: ITerminalExt | undefined;
   private _workerManager: WorkerManager;
+  private _handlers: Map<String, IResetHandler> = new Map();
 
   constructor(workerPath: string, opts: Partial<IImageAddonOptions>) {
     this._opts = Object.assign({}, DEFAULT_OPTIONS, opts);
@@ -71,6 +70,7 @@ export class ImageAddon implements ITerminalAddon {
       obj.dispose();
     }
     this._disposables.length = 0;
+    this._handlers.clear();
   }
 
   private _disposeLater(...args: IDisposable[]): void {
@@ -132,9 +132,10 @@ export class ImageAddon implements ITerminalAddon {
 
     // SIXEL handler
     if (this._opts.sixelSupport) {
+      const sixelHandler = new SixelHandler(this._opts, this._storage, terminal, this._workerManager);
+      this._handlers.set('sixel', sixelHandler);
       this._disposeLater(
-        terminal._core._inputHandler._parser.registerDcsHandler(
-          { final: 'q' }, new SixelHandler(this._opts, this._storage, terminal, this._workerManager))
+        terminal._core._inputHandler._parser.registerDcsHandler({ final: 'q' }, sixelHandler)
       );
     }
   }
@@ -145,10 +146,14 @@ export class ImageAddon implements ITerminalAddon {
     this._opts.sixelScrolling = this._defaultOpts.sixelScrolling;
     this._opts.cursorRight = this._defaultOpts.cursorRight;
     this._opts.cursorBelow = this._defaultOpts.cursorBelow;
-    this._opts.sixelPrivatePalette = this._defaultOpts.sixelPrivatePalette;
     this._opts.sixelPaletteLimit = this._defaultOpts.sixelPaletteLimit;
     // also clear image storage
     this._storage?.reset();
+    // reset worker and protocol handlers
+    this._workerManager.reset();
+    for (const value of this._handlers.values()) {
+      value.reset();
+    }
     return false;
   }
 
@@ -195,9 +200,6 @@ export class ImageAddon implements ITerminalAddon {
         case 80:
           this._opts.sixelScrolling = false;
           break;
-        case 1070:
-          this._opts.sixelPrivatePalette = true;
-          break;
         case 8452:
           this._opts.cursorRight = true;
           break;
@@ -214,9 +216,6 @@ export class ImageAddon implements ITerminalAddon {
       switch (params[i]) {
         case 80:
           this._opts.sixelScrolling = true;
-          break;
-        case 1070:
-          this._opts.sixelPrivatePalette = false;
           break;
         case 8452:
           this._opts.cursorRight = false;

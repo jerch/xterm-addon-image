@@ -39,8 +39,11 @@ export interface IImageAddonOptions {
   sixelScrolling: boolean;
   sixelPaletteLimit: number;
   sixelSizeLimit: number;
-  sixelPrivatePalette: boolean;
-  sixelDefaultPalette: 'VT340-COLOR' | 'VT340-GREY' | 'ANSI256';
+}
+
+export interface IResetHandler {
+  // attached to RIS and DECSTR
+  reset(): void;
 }
 
 /**

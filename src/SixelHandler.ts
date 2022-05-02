@@ -4,15 +4,14 @@
  */
 
 import { ImageStorage } from './ImageStorage';
-import { IDcsHandler, IParams, IImageAddonOptions, ITerminalExt, AttributeData, IColorManager } from './Types';
+import { IDcsHandler, IParams, IImageAddonOptions, ITerminalExt, AttributeData, IColorManager, IResetHandler } from './Types';
 import { toRGBA8888, BIG_ENDIAN } from 'sixel/lib/Colors';
 import { RGBA8888 } from 'sixel/lib/Types';
 import { WorkerManager } from './WorkerManager';
 import { ImageRenderer } from './ImageRenderer';
-import { PaletteType } from 'WorkerTypes';
 
 
-export class SixelHandler implements IDcsHandler {
+export class SixelHandler implements IDcsHandler, IResetHandler {
   private _size = 0;
   private _fillColor = 0;
   private _aborted = false;
@@ -24,6 +23,12 @@ export class SixelHandler implements IDcsHandler {
     private readonly _workerManager: WorkerManager
   ) {}
 
+  public reset(): void {
+    // TODO: reset the sixel decoder to defaults
+    // (only local version, as worker gets reloaded already)
+    console.log('SixelHandler.reset...');
+  }
+
   // called on new SIXEL DCS sequence
   public hook(params: IParams): void {
     // NOOP fall-through for all actions if worker is in non-working condition
@@ -34,17 +39,8 @@ export class SixelHandler implements IDcsHandler {
     this._fillColor = params.params[1] === 1 ? 0 : extractActiveBg(
       this._coreTerminal._core._inputHandler._curAttrData,
       this._coreTerminal._core._colorManager.colors);
-    // image palette is either shared (using previous one), or one of
-    // 'VT340-COLOR' | 'VT340-GREY' | 'ANSI256' (ANSI256 as fallthrough)
-    const palette = this._opts.sixelPrivatePalette === false
-      ? PaletteType.SHARED
-      : this._opts.sixelDefaultPalette === 'VT340-COLOR'
-        ? PaletteType.VT340_COLOR
-        : this._opts.sixelDefaultPalette === 'VT340-GREY'
-          ? PaletteType.VT340_GREY
-          : PaletteType.ANSI_256;
     this._size = 0;
-    this._workerManager.sixelInit(this._fillColor, palette, this._opts.sixelPaletteLimit);
+    this._workerManager.sixelInit(this._fillColor, this._opts.sixelPaletteLimit);
   }
 
   // called for any SIXEL data chunk
