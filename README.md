@@ -78,41 +78,28 @@ terminal.loadAddon(imageAddon);
   `DECRST 80` (on, binary: `\x1b [ ? 80 l`) during runtime.
 
 - **Cursor Positioning**  
-  If scrolling is set, the cursor will be placed at the beginning of the next row by default.
-  You can change this behavior with the following terminal sequences:
-  - `DECSET 8452` (binary: `\x1b [ ? 8452 h`)  
-    For images not overflowing to the right, the cursor will move to the next right cell of the last image cell.
-    Images overflowing to the right, move the cursor to the next line.
-    Same as the constructor option `{cursorRight: true}`.
-
-  - `DECRST 8452` (binary: `\x1b [ ? 8452 l`)  
-    Always moves the cursor to the next line (default). Same as the constructor option `{cursorRight: false}`.
-
-  - `DECRST 7730` (binary: `\x1b [ ? 7730 l`)  
-    Move the cursor on the next line to the image start offset instead of the beginning.
-    This setting only applies if the cursor will wrap to the next line (thus never for scrolling off,
-    for `DECSET 8452` only after overflowing to the right). Same as the constructor option `{cursorBelow: true}`.
-
-  - `DECSET 7730` (binary: `\x1b [ ? 7730 h`)  
-    Keep the cursor on the next line at the beginning (default). Same as the constructor option `{cursorBelow: false}`.
+  If scrolling is set, the cursor will be placed at the first image column of the last image row (VT340 mode).
+  Other cursor positioning modes as used by xterm or mintty are not supported.
 
 - **SIXEL Palette Handling**  
   By default the addon limits the palette size to 256 registers (as demanded by the DEC specification).
   The limit can be increased to a maximum of 4096 registers (via `sixelPaletteLimit`).
 
-  If `sixelPrivatePalette` is set (default), images are initialized with their own private palette derived from the default palette (`'VT340-COLOR'`). If `sixelPrivatePalette` is not set, the palette of the previous image will be used as initial palette.
+  The default palette is a mixture of VT340 colors (lower 16 registers), xterm colors (up to 256) and zeros (up to 4096).
+  There is no private/shared palette distinction, palette colors are always carried over from a previous.
+  Restoring the default palette is currently only possible by RIS and DECSTR, which are quite intrusive.
+  If you need to change palette colors before loading the next image, consider doing this by loading a sixel image
+  with your custom color definitions instead.
 
-  Note that the underlying SIXEL library currently applies colors immediately to pixels (*printer mode*),
-  thus it is technically possible to use more colors in one image than the palette has color slots.
+  Other than on older terminals, the underlying SIXEL library applies colors immediately to individual pixels
+  (*printer mode*), thus it is technically possible to use more colors in one image than the palette has color slots.
   This feature is called *high-color* in libsixel.
 
-  In contrast older terminals were always bound to the palette due hardware limitations.
-  This limitation is mimicked by xterm's shared palette mode, which will re-color previous images from palette changes
-  treating all sixel images as indexed images. This true shared-palette *terminal mode* is currently not supported by
-  xterm.js, as it always operates in *printer mode*.
+  A terminal wide shared palette mode with late output coloring is not supported,
+  therefore palette animations cannot be used.
 
 - **SIXEL Raster Attributes Handling**  
-  If raster attributes were found in the SIXEL data (level 2), the image will always be limited to the given height/width extend. We deviate here from the specification on purpose, as it allows several processing optimizations. For level 1 SIXEL data without any raster attributes the image can freely grow in width and height up to the last data byte, which has a much higher processing penalty. In general encoding libraries should not create level 1 data anymore and should not produce pixel information beyond the announced height/width extend. Both is discouraged by the >30 years old specification.
+  If raster attributes were found in the SIXEL data (level 2), the image will always be truncated to the given height/width extend. We deviate here from the specification on purpose, as it allows several processing optimizations. For level 1 SIXEL data without any raster attributes the image can freely grow in width and height up to the last data byte, which has a much higher processing penalty. In general encoding libraries should not create level 1 data anymore and should not produce pixel information beyond the announced height/width extend. Both is discouraged by the >30 years old specification.
 
   Currently the SIXEL implementation of the addon does not take custom pixel sizes into account, a SIXEL pixel will map 1:1 to a screen pixel.
 

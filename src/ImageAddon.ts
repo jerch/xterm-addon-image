@@ -15,8 +15,6 @@ import { WorkerManager } from './WorkerManager';
 const DEFAULT_OPTIONS: IImageAddonOptions = {
   enableSizeReports: true,
   pixelLimit: 16777216, // limit to 4096 * 4096 pixels
-  cursorRight: false,
-  cursorBelow: false,
   sixelSupport: true,
   sixelScrolling: true,
   sixelPaletteLimit: 256,
@@ -144,8 +142,6 @@ export class ImageAddon implements ITerminalAddon {
   public reset(): boolean {
     // reset options customizable by sequences to defaults
     this._opts.sixelScrolling = this._defaultOpts.sixelScrolling;
-    this._opts.cursorRight = this._defaultOpts.cursorRight;
-    this._opts.cursorBelow = this._defaultOpts.cursorBelow;
     this._opts.sixelPaletteLimit = this._defaultOpts.sixelPaletteLimit;
     // also clear image storage
     this._storage?.reset();
@@ -200,12 +196,6 @@ export class ImageAddon implements ITerminalAddon {
         case 80:
           this._opts.sixelScrolling = false;
           break;
-        case 8452:
-          this._opts.cursorRight = true;
-          break;
-        case 7730:
-          this._opts.cursorBelow = false;
-          break;
       }
     }
     return false;
@@ -216,12 +206,6 @@ export class ImageAddon implements ITerminalAddon {
       switch (params[i]) {
         case 80:
           this._opts.sixelScrolling = true;
-          break;
-        case 8452:
-          this._opts.cursorRight = false;
-          break;
-        case 7730:
-          this._opts.cursorBelow = true;
           break;
       }
     }

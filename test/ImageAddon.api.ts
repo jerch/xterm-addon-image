@@ -111,8 +111,6 @@ describe.only('ImageAddon', () => {
       const DEFAULT_OPTIONS: IImageAddonOptions = {
         enableSizeReports: true,
         pixelLimit: 16777216,
-        cursorRight: false,
-        cursorBelow: false,
         sixelSupport: true,
         sixelScrolling: true,
         sixelPaletteLimit: 512,  // set to 512 to get example image working
@@ -126,8 +124,6 @@ describe.only('ImageAddon', () => {
       const customSettings: IImageAddonOptions = {
         enableSizeReports: false,
         pixelLimit: 5,
-        cursorRight: true,
-        cursorBelow: true,
         sixelSupport: false,
         sixelScrolling: false,
         sixelPaletteLimit: 1024,
@@ -144,14 +140,13 @@ describe.only('ImageAddon', () => {
   });
 
   describe('scrolling & cursor modes', () => {
-    it('testdata default (scrolling, cursor next line, beginning)', async () => {
+    it('testdata default (scrolling with VT240 cursor pos)', async () => {
       const dim = await getDimensions();
       await writeToTerminal(SIXEL_SEQ_0);
-      assert.deepEqual(await getCursor(), [0, Math.ceil(TESTDATA.height/dim.cellHeight)]);
+      assert.deepEqual(await getCursor(), [0, Math.floor(TESTDATA.height/dim.cellHeight)]);
       // moved to right by 10 cells
       await writeToTerminal('#'.repeat(10) + SIXEL_SEQ_0);
-      assert.deepEqual(await getCursor(), [0, Math.ceil(TESTDATA.height/dim.cellHeight) * 2]);
-      // await new Promise(res => setTimeout(res, 1000));
+      assert.deepEqual(await getCursor(), [10, Math.floor(TESTDATA.height/dim.cellHeight) * 2]);
     });
     it('write testdata noScrolling', async () => {
       await writeToTerminal('\x1b[?80h' + SIXEL_SEQ_0);
@@ -160,33 +155,17 @@ describe.only('ImageAddon', () => {
       await writeToTerminal(SIXEL_SEQ_0);
       assert.deepEqual(await getCursor(), [0, 0]);
     });
-    it.skip('testdata cursor right', async () => {
-      const dim = await getDimensions();
-      await writeToTerminal('\x1b[?8452h' + SIXEL_SEQ_0);
-      // currently failing on OSX firefox with AssertionError: expected [ 72, 4 ] to deeply equal [ 72, 5 ]
-      assert.deepEqual(await getCursor(), [Math.ceil(TESTDATA.width/dim.cellWidth), Math.floor(TESTDATA.height/dim.cellHeight)]);
-    });
-    it('testdata cursor right with overflow beginning', async () => {
-      const dim = await getDimensions();
-      await writeToTerminal('\x1b[?8452h' + '#'.repeat(30) + SIXEL_SEQ_0);
-      assert.deepEqual(await getCursor(), [0, Math.ceil(TESTDATA.height/dim.cellHeight)]);
-    });
-    it('testdata cursor right with overflow below', async () => {
-      const dim = await getDimensions();
-      await writeToTerminal('\x1b[?8452h\x1b[?7730l' + '#'.repeat(30) + SIXEL_SEQ_0);
-      assert.deepEqual(await getCursor(), [30, Math.ceil(TESTDATA.height/dim.cellHeight)]);
-    });
-    it('testdata cursor always below', async () => {
+    it('testdata cursor always at VT240 pos', async () => {
       const dim = await getDimensions();
       // offset 0
-      await writeToTerminal('\x1b[?7730l' + SIXEL_SEQ_0);
-      assert.deepEqual(await getCursor(), [0, Math.ceil(TESTDATA.height/dim.cellHeight)]);
+      await writeToTerminal(SIXEL_SEQ_0);
+      assert.deepEqual(await getCursor(), [0, Math.floor(TESTDATA.height/dim.cellHeight)]);
       // moved to right by 10 cells
       await writeToTerminal('#'.repeat(10) + SIXEL_SEQ_0);
-      assert.deepEqual(await getCursor(), [10, Math.ceil(TESTDATA.height/dim.cellHeight) * 2]);
+      assert.deepEqual(await getCursor(), [10, Math.floor(TESTDATA.height/dim.cellHeight) * 2]);
       // moved by 30 cells (+10 prev)
       await writeToTerminal('#'.repeat(30) + SIXEL_SEQ_0);
-      assert.deepEqual(await getCursor(), [10 + 30, Math.ceil(TESTDATA.height/dim.cellHeight) * 3]);
+      assert.deepEqual(await getCursor(), [10 + 30, Math.floor(TESTDATA.height/dim.cellHeight) * 3]);
     });
   });
 
