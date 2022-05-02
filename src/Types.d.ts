@@ -33,8 +33,6 @@ export interface IImageAddonOptions {
   pixelLimit: number;
   storageLimit: number;
   showPlaceholder: boolean;
-  cursorRight: boolean;
-  cursorBelow: boolean;
   sixelSupport: boolean;
   sixelScrolling: boolean;
   sixelPaletteLimit: number;

@@ -181,16 +181,7 @@ export class ImageStorage implements IDisposable {
 
     // cursor positioning modes
     if (this._opts.sixelScrolling) {
-      if (this._opts.cursorRight) {
-        buffer.x = offset + cols;
-        if (buffer.x >= termCols) {
-          this._terminal._core._inputHandler.lineFeed();
-          buffer.x = (this._opts.cursorBelow) ? offset : 0;
-        }
-      } else {
-        this._terminal._core._inputHandler.lineFeed();
-        buffer.x = (this._opts.cursorBelow) ? offset : 0;
-      }
+      buffer.x = offset;
     } else {
       buffer.x = originX;
       buffer.y = originY;
