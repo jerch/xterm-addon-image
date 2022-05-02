@@ -41,6 +41,11 @@ export interface IImageAddonOptions {
   sixelSizeLimit: number;
 }
 
+export interface IResetHandler {
+  // attached to RIS and DECSTR
+  reset(): void;
+}
+
 /**
  * Stub into private interfaces.
  * This should be kept in line with common libs.

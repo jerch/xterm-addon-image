@@ -4,14 +4,14 @@
  */
 
 import { ImageStorage } from './ImageStorage';
-import { IDcsHandler, IParams, IImageAddonOptions, ITerminalExt, AttributeData, IColorManager } from './Types';
+import { IDcsHandler, IParams, IImageAddonOptions, ITerminalExt, AttributeData, IColorManager, IResetHandler } from './Types';
 import { toRGBA8888, BIG_ENDIAN } from 'sixel/lib/Colors';
 import { RGBA8888 } from 'sixel/lib/Types';
 import { WorkerManager } from './WorkerManager';
 import { ImageRenderer } from './ImageRenderer';
 
 
-export class SixelHandler implements IDcsHandler {
+export class SixelHandler implements IDcsHandler, IResetHandler {
   private _size = 0;
   private _fillColor = 0;
   private _aborted = false;
@@ -22,6 +22,12 @@ export class SixelHandler implements IDcsHandler {
     private readonly _coreTerminal: ITerminalExt,
     private readonly _workerManager: WorkerManager
   ) {}
+
+  public reset(): void {
+    // TODO: reset the sixel decoder to defaults
+    // (only local version, as worker gets reloaded already)
+    console.log('SixelHandler.reset...');
+  }
 
   // called on new SIXEL DCS sequence
   public hook(params: IParams): void {

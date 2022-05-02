@@ -81,6 +81,14 @@ export class WorkerManager implements IDisposable {
     }
   }
 
+  public reset(): void {
+    if (this._worker) {
+      this._worker.terminate();
+    }
+    this._worker = undefined;
+    this._failedToLoad = false;
+  }
+
   public get failed(): boolean {
     return this._failedToLoad;
   }
