@@ -3,10 +3,9 @@
  * @license MIT
  */
 
-import { AckPayload, IImageWorkerMessage, IPostMessage, MessageType, PaletteType } from '../src/WorkerTypes';
+import { AckPayload, IImageWorkerMessage, IPostMessage, MessageType } from '../src/WorkerTypes';
 
 import { Decoder } from 'sixel/lib/Decoder';
-import { PALETTE_VT340_COLOR, PALETTE_VT340_GREY, PALETTE_ANSI_256 } from 'sixel/lib/Colors';
 
 
 // narrow types for postMessage to our protocol
@@ -75,15 +74,9 @@ function messageHandler(event: MessageEvent<IImageWorkerMessage>): void {
       break;
     case MessageType.SIXEL_INIT:
       sizeExceeded = false;
-      const { fillColor, paletteType, limit } = data.payload;
-      const palette = paletteType === PaletteType.SHARED
-        ? null
-        : paletteType === PaletteType.VT340_COLOR
-          ? PALETTE_VT340_COLOR
-          : paletteType === PaletteType.VT340_GREY
-            ? PALETTE_VT340_GREY
-            : PALETTE_ANSI_256;
-      dec.init(fillColor, palette, limit);
+      const { fillColor, limit } = data.payload;
+      // palette null - always shared from previous decoding
+      dec.init(fillColor, null, limit);
       break;
     case MessageType.ACK:
       pixelLimit = data.options?.pixelLimit || 0;

@@ -5,7 +5,7 @@
 
 import { IImageAddonOptions } from './Types';
 import { IDisposable } from 'xterm';
-import { IImageWorkerMessage, IImagePixel, IImageWorker, MessageType, PaletteType, AckPayload } from './WorkerTypes';
+import { IImageWorkerMessage, IImagePixel, IImageWorker, MessageType, AckPayload } from './WorkerTypes';
 
 
 
@@ -124,12 +124,12 @@ export class WorkerManager implements IDisposable {
   }
 
   // SIXEL message interface
-  public sixelInit(fillColor: number, paletteType: PaletteType, limit: number): void {
+  public sixelInit(fillColor: number, limit: number): void {
     this._setSixelResolver();
     this.sizeExceeded = false;
     this.worker?.postMessage({
       type: MessageType.SIXEL_INIT,
-      payload: { fillColor, paletteType, limit }
+      payload: { fillColor, limit }
     });
   }
   public sixelPut(data: Uint8Array, length: number): void {

@@ -21,8 +21,6 @@ const DEFAULT_OPTIONS: IImageAddonOptions = {
   sixelScrolling: true,
   sixelPaletteLimit: 256,
   sixelSizeLimit: 25000000,
-  sixelPrivatePalette: true,
-  sixelDefaultPalette: 'VT340-COLOR',
   storageLimit: 128,
   showPlaceholder: true
 };
@@ -145,7 +143,6 @@ export class ImageAddon implements ITerminalAddon {
     this._opts.sixelScrolling = this._defaultOpts.sixelScrolling;
     this._opts.cursorRight = this._defaultOpts.cursorRight;
     this._opts.cursorBelow = this._defaultOpts.cursorBelow;
-    this._opts.sixelPrivatePalette = this._defaultOpts.sixelPrivatePalette;
     this._opts.sixelPaletteLimit = this._defaultOpts.sixelPaletteLimit;
     // also clear image storage
     this._storage?.reset();
@@ -195,9 +192,6 @@ export class ImageAddon implements ITerminalAddon {
         case 80:
           this._opts.sixelScrolling = false;
           break;
-        case 1070:
-          this._opts.sixelPrivatePalette = true;
-          break;
         case 8452:
           this._opts.cursorRight = true;
           break;
@@ -214,9 +208,6 @@ export class ImageAddon implements ITerminalAddon {
       switch (params[i]) {
         case 80:
           this._opts.sixelScrolling = true;
-          break;
-        case 1070:
-          this._opts.sixelPrivatePalette = false;
           break;
         case 8452:
           this._opts.cursorRight = false;
