@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2012 Joerg Breitbart.
+ * Copyright (c) 2022 Joerg Breitbart.
  * @license MIT
  */
 
@@ -56,22 +56,6 @@ declare module 'xterm-addon-image' {
     showPlaceholder?: boolean;
 
     /**
-     * Leave cursor to right of image.
-     * This has no effect, if an image covers all cells to the right.
-     * Same as DECSET 8452, default is false.
-     */
-    cursorRight?: boolean;
-
-    /**
-     * Leave cursor below the first row of an image, scrolling if needed.
-     * If disabled, the cursor is left at the beginning of the next line.
-     * This settings is partially overwritten by `cursorRight`, if an image
-     * does not cover all cells to the right.
-     * Same as DECSET 7730, default is false.
-     */
-    cursorBelow?: boolean;
-
-    /**
      * SIXEL settings
      */
 
@@ -83,10 +67,6 @@ declare module 'xterm-addon-image' {
     sixelPaletteLimit?: number;
     /** SIXEL image size limit in bytes (default 25000000 bytes). */
     sixelSizeLimit?: number;
-    /** Whether to use private palettes for SIXEL sequences (default is true). Same as DECSET 1070. */
-    sixelPrivatePalette?: boolean;
-    /** Default start palette (default is 'VT340-COLOR'). */
-    sixelDefaultPalette?: 'VT340-COLOR' | 'VT340-GREY' | 'ANSI256';
   }
 
   export class ImageAddon implements ITerminalAddon {
