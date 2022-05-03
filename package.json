@@ -1,6 +1,6 @@
 {
   "name": "xterm-addon-image",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "author": "Joerg Breitbart <j.breitbart@netzkolchose.de>",
   "main": "lib/xterm-addon-image.js",
   "types": "typings/xterm-addon-image.d.ts",
@@ -13,12 +13,10 @@
     "prepublishOnly": "npm run package"
   },
   "peerDependencies": {
-    "xterm": "~4.16.0"
-  },
-  "dependencies": {
-    "sixel": "^0.16.0"
+    "xterm": "~4.18.0"
   },
   "devDependencies": {
-    "png-ts": "^0.0.3"
+    "png-ts": "^0.0.3",
+    "sixel": "^0.16.0"
   }
 }
