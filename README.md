@@ -9,7 +9,7 @@ Image output in xterm.js.
 ⚠️ This is an experimental addon, that is still under construction. ⚠️
 
 
-### Install from npm (not yet released)
+### Install from npm
 
 ```bash
 npm install --save xterm-addon-image
