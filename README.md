@@ -15,6 +15,11 @@ Image output in xterm.js.
 npm install --save xterm-addon-image
 ```
 
+### Release and Compatibility
+
+- 0.1.0 - compatible to xterm.js 4.16.0 - 4.18.0
+
+
 ### Clone & Build
 
 The addon integrates tightly with the xterm.js base repo, esp. for tests and the demo.
