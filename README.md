@@ -87,9 +87,8 @@ terminal.loadAddon(imageAddon);
 
   The default palette is a mixture of VT340 colors (lower 16 registers), xterm colors (up to 256) and zeros (up to 4096).
   There is no private/shared palette distinction, palette colors are always carried over from a previous.
-  Restoring the default palette is currently only possible by RIS and DECSTR, which are quite intrusive.
-  If you need to change palette colors before loading the next image, consider doing this by loading a sixel image
-  with your custom color definitions instead.
+  Restoring the default palette size and colors is possible with `XTSMGRAPHICS 1 ; 2` (binary: `\x1b[?1;2S`),
+  the default palette is only restored on RIS nd DECSTR.
 
   Other than on older terminals, the underlying SIXEL library applies colors immediately to individual pixels
   (*printer mode*), thus it is technically possible to use more colors in one image than the palette has color slots.

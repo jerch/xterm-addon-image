@@ -256,6 +256,8 @@ export class ImageAddon implements ITerminalAddon {
         case GaAction.SET_DEFAULT:
           this._opts.sixelPaletteLimit = this._defaultOpts.sixelPaletteLimit;
           this._report(`\x1b[?${params[0]};${GaStatus.SUCCESS};${this._opts.sixelPaletteLimit}S`);
+          // also reset default palette colors for now
+          this._workerManager.reset();
           return true;
         case GaAction.SET:
           if (params.length > 2 && !(params[2] instanceof Array) && params[2] <= MAX_SIXEL_PALETTE_SIZE) {
