@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # clone xterm.js base repo
-git clone --depth 1 --branch 4.16.0 https://github.com/xtermjs/xterm.js.git
+git clone --depth 1 --branch $XTERMJS https://github.com/xtermjs/xterm.js.git
 cd xterm.js
 rm -rf .git
 
