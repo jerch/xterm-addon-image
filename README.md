@@ -71,7 +71,6 @@ terminal.loadAddon(imageAddon);
 
 - **Scrolling On | Off**  
   By default scrolling is on, thus an image will advance the cursor at the bottom if needed.
-  The cursor will move with the image and be placed either right to the image or in the next line
   (see cursor positioning).
 
   If scrolling is off, the image gets painted from the top left of the current viewport
@@ -173,8 +172,33 @@ Well you don't have to, and it probably will just work fine with the addon defau
 
 _How can I adjust the memory usage?_  
 - `pixelLimit`  
-  A constructor settings, thus you would have to anticipate, whether (multiple) terminals in your page gonna do lots of concurrent decoding. Since this is normally not the case and the memory usage is only temporarily peaking, a rather high value should work even with multiple terminals in one page.
+  A constructor setting, thus you would have to anticipate, whether (multiple) terminals in your page gonna do lots of concurrent decoding. Since this is normally not the case and the memory usage is only temporarily peaking, a rather high value should work even with multiple terminals in one page.
 - `storageLimit`  
-  A constructor and a runtime setting. In conjunction with `storageUsage` you can do runtime checks and adjust the limit to your needs. If you have to lower the limit below the current usage, images will be removed and may turn into a placeholder in the terminal's scrollback (if `showPlaceholder` is set). When adjusting keep in mind to leave enough room for memory peaking for decoding.
+  A constructor and a runtime setting. In conjunction with `storageUsage` you can do runtime checks and adjust the limit to your needs. If you have to lower the limit below the current usage, images will be removed in FIFO order and may turn into a placeholder in the terminal's scrollback (if `showPlaceholder` is set). When adjusting keep in mind to leave enough room for memory peaking for decoding.
 - `sixelSizeLimit`  
-  A constructor setting. This has only a small direct impact on peaking memory during decoding. It still will avoid processing of overly big or broken sequences at an earlier phase, thus may stop the decoder from entering its memory intensive task for potentially invalid data.
+  A constructor setting. This has only a small impact on peaking memory during decoding. It is meant to avoid processing of overly big or broken SIXEL sequences at an earlier phase, thus may stop the decoder from entering its memory intensive task for potentially invalid data.
+
+
+### Terminal Interaction
+
+- Images already on the terminal screen will reshape on font-rescaling to keep the terminal cell coverage intact.
+  This behavior might diverge from other terminals, but is in general the more desired one.
+- On terminal resize images may expand to the right automatically, if they were right-truncated before.
+  They never expand to the bottom, if they were bottom-truncated before (e.g. from scrolling-off).
+- Text autowrapping from terminal resize may break and wrap images into multiple parts. This is unfortunate,
+  but cannot be avoided, while sticking to the stronger terminal text-grid mechanics.
+  (Yes images are a second class citizen on a mainly text-driven interface.)
+- Characters written over an image will erase the image information for affected cells.
+- Images are painted above BG/FG data not erasing it. More advanced "composition tricks" like painting images
+  below FG/BG data are not possible. (We currently dont hook into BG/FG rendering itself.)
+- Previous image data at a cell will be erased on new image data. (We currently have no transparency composition.)
+
+
+### Performance & Latency
+
+- Performance should be good enough for occasional SIXEL output from REPLs, up to downscaled movies
+  from `mpv` with its SIXEL renderer (tested in the demo). For 3rd party xterm.js integrations this
+  furthermore depends highly on the overall incoming data throughput.
+- Image processing has a bad latency, partially caused by the internal worker design and its message overhead.
+  Most of the latency though is inherited from xterm.js' incoming data route (PTY -> server process -> websocket -> xterm.js async parsing), where every step creates more waiting time. Since we cannot do much about that "long line",
+  keep that in mind when you try to run more demanding applications with realtime drawing and interactive response needs.
