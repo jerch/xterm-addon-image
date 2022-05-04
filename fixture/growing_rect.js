@@ -22,7 +22,7 @@ function createRectMinusOne(size, color) {
 
 async function main() {
   // clear + cursor and sixelScrolling off
-  process.stdout.write('\x1b[2J\x1b[?25;80l');
+  process.stdout.write('\x1b[2J\x1b[?25;80h');
 
   for (let i = 1; i < 300; ++i) {
     await new Promise(res => setTimeout(() => {
@@ -38,7 +38,7 @@ async function main() {
   }
 
   // re-enable cursor and sixel scrolling
-  process.stdout.write('\x1b[2J\x1b[?25;80h');
+  process.stdout.write('\x1b[2J\x1b[?25;80l');
 }
 
 main();
