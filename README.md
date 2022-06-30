@@ -17,7 +17,7 @@ npm install --save xterm-addon-image
 
 ### Release Compatibility
 
-- 0.1.0 - compatible to xterm.js 4.16.0 - 4.18.0
+- 0.1.0 - compatible to xterm.js 4.16.0 - 4.19.0
 
 
 ### Clone & Build
@@ -26,7 +26,7 @@ The addon integrates tightly with the xterm.js base repo, esp. for tests and the
 To properly set up all needed resources see `bootstrap.sh` or run it directly with
 
 ```bash
-curl -s https://raw.githubusercontent.com/jerch/xterm-addon-image/master/bootstrap.sh | XTERMJS=4.18.0 bash
+curl -s https://raw.githubusercontent.com/jerch/xterm-addon-image/master/bootstrap.sh | XTERMJS=4.19.0 bash
 ```
 
 The addon sources and npm package definition resides under `addons/xterm-addon-image`.
