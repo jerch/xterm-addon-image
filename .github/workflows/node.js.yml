@@ -27,6 +27,6 @@ jobs:
         node-version: ${{ matrix.node-version }}
     - run: npm install yarn
     - run: |
-        XTERMJS=4.18.0 ./bootstrap.sh
+        XTERMJS=4.19.0 ./bootstrap.sh
     - run: cd xterm.js && yarn test
     - run: cd xterm.js && yarn test-api-chromium --headless
