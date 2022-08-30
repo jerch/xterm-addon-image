@@ -28,5 +28,5 @@ jobs:
     - run: npm install yarn
     - run: |
         XTERMJS=4.19.0 ./bootstrap.sh
-    - run: cd xterm.js && yarn test
-    - run: cd xterm.js && yarn test-api-chromium --headless
+    - run: cd xterm-addon-image/xterm.js && yarn test
+    - run: cd xterm-addon-image/xterm.js && yarn test-api-chromium --headless
