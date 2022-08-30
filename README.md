@@ -29,7 +29,7 @@ To properly set up all needed resources see `bootstrap.sh` or run it directly wi
 curl -s https://raw.githubusercontent.com/jerch/xterm-addon-image/master/bootstrap.sh | XTERMJS=4.19.0 bash
 ```
 
-The addon sources and npm package definition resides under `addons/xterm-addon-image`.
+The addon sources and npm package definition reside under `addons/xterm-addon-image`.
 
 
 ### Usage
@@ -202,3 +202,11 @@ _How can I adjust the memory usage?_
 - Image processing has a bad latency, partially caused by the internal worker design and its message overhead.
   Most of the latency though is inherited from xterm.js' incoming data route (PTY -> server process -> websocket -> xterm.js async parsing), where every step creates more waiting time. Since we cannot do much about that "long line",
   keep that in mind when you try to run more demanding applications with realtime drawing and interactive response needs.
+
+
+### Changelog
+
+- 0.1.1 bugfixes:
+  - clear sticky image tiles on render
+  - create xterm-addon-image folder from bootstrap.sh
+  - fix peer dependency in package.json

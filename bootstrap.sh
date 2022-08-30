@@ -1,5 +1,8 @@
 #!/bin/bash
 
+mkdir xterm-addon-image
+cd xterm-addon-image
+
 # clone xterm.js base repo
 git clone --depth 1 --branch $XTERMJS https://github.com/xtermjs/xterm.js.git
 cd xterm.js
