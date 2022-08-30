@@ -47,8 +47,10 @@ export class ImageStorage implements IDisposable {
   private _lastId = 0;
   // last evicted id
   private _lowestId = 0;
-  // whether last render call has drawn anything
-  private _hasDrawn = false;
+  // whether a full clear happened before
+  private _fullyCleared = false;
+  // whether render should do a full clear
+  private _needsFullClear = false;
   // hard limit of stored pixels (fallback limit of 10 MB)
   private _pixelLimit: number = 2500000;
 
@@ -128,7 +130,8 @@ export class ImageStorage implements IDisposable {
       this._images.delete(id);
     }
     // mark canvas to be wiped on next render
-    this._hasDrawn = true;
+    this._needsFullClear = true;
+    this._fullyCleared = false;
   }
 
   /**
@@ -237,20 +240,28 @@ export class ImageStorage implements IDisposable {
    */
   // TODO: Should we move this to the ImageRenderer?
   public render(range: { start: number, end: number }): void {
+    // exit early if we dont have a canvas
+    if (!this._renderer.canvas) {
+      return;
+    }
     // exit early if we dont have any images to test for
-    // FIXME: leaves garbage on screen for IL/DL
-    if (!this._images.size || !this._renderer.canvas) {
-      if (this._hasDrawn) {
+    if (!this._images.size) {
+      if (!this._fullyCleared) {
         this._renderer.clearAll();
-        this._hasDrawn = false;
+        this._fullyCleared = true;
       }
       return;
+    }
+
+    // buffer switches force a full clear
+    if (this._needsFullClear) {
+      this._renderer.clearAll();
+      this._fullyCleared = true;
     }
 
     const { start, end } = range;
     const buffer = this._terminal._core.buffer;
     const cols = this._terminal._core.cols;
-    this._hasDrawn = false;
 
     // clear drawing area
     this._renderer.clearLines(start, end);
@@ -296,7 +307,7 @@ export class ImageStorage implements IDisposable {
             } else if (this._opts.showPlaceholder) {
               this._renderer.drawPlaceholder(startCol, row, count);
             }
-            this._hasDrawn = true;
+            this._fullyCleared = false;
           }
         }
       }
