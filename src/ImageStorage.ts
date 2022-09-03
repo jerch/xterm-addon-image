@@ -249,6 +249,7 @@ export class ImageStorage implements IDisposable {
       if (!this._fullyCleared) {
         this._renderer.clearAll();
         this._fullyCleared = true;
+        this._needsFullClear = false;
       }
       return;
     }
@@ -257,6 +258,7 @@ export class ImageStorage implements IDisposable {
     if (this._needsFullClear) {
       this._renderer.clearAll();
       this._fullyCleared = true;
+      this._needsFullClear = false;
     }
 
     const { start, end } = range;
