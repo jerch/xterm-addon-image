@@ -206,6 +206,7 @@ _How can I adjust the memory usage?_
 
 ### Changelog
 
+- 0.1.2 bugfix: reset clear flag
 - 0.1.1 bugfixes:
   - clear sticky image tiles on render
   - create xterm-addon-image folder from bootstrap.sh
