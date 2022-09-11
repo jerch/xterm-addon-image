@@ -179,10 +179,11 @@ export class ImageRenderer implements IDisposable {
     // Floor all pixel offsets to get stable tile mapping without any overflows.
     // Note: For not pixel perfect aligned cells like in the DOM renderer
     // this will move a tile slightly to the top/left (subpixel range, thus ignore it).
+    // FIX #34: avoid striping on displays with pixelDeviceRatio != 1 by ceiling height and width
     this._ctx.drawImage(
       img,
-      Math.floor(sx), Math.floor(sy), Math.floor(finalWidth), Math.floor(finalHeight),
-      Math.floor(dx), Math.floor(dy), Math.floor(finalWidth), Math.floor(finalHeight)
+      Math.floor(sx), Math.floor(sy), Math.ceil(finalWidth), Math.ceil(finalHeight),
+      Math.floor(dx), Math.floor(dy), Math.ceil(finalWidth), Math.ceil(finalHeight)
     );
   }
 
