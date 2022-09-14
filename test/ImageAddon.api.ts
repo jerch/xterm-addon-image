@@ -90,7 +90,8 @@ describe.only('ImageAddon', () => {
       '_core._inputHandler',
       '_core._inputHandler._parser',
       '_core._inputHandler._curAttrData',
-      '_core._colorManager'
+      '_core._colorManager',
+      '_core._coreBrowserService'
     ];
     for (const prop of accessors) {
       assert.equal(

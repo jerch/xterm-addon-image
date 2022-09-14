@@ -13,7 +13,7 @@ import type { IBufferLine, IExtendedAttrs, IInputHandler } from 'common/Types';
 import type { IDirtyRowService } from 'common/services/Services';
 import type { IColorManager, ITerminal } from 'browser/Types';
 import type { IRenderDimensions } from 'browser/renderer/Types';
-import type { IRenderService } from 'browser/services/Services';
+import type { ICoreBrowserService, IRenderService } from 'browser/services/Services';
 
 export const enum Cell {
   CONTENT = 0,  // codepoint and wcwidth information (enum Content)
@@ -74,6 +74,7 @@ export interface ICoreTerminalExt extends ITerminal {
   _colorManager: IColorManager;
   _inputHandler: IInputHandlerExt;
   _renderService: IRenderService;
+  _coreBrowserService: ICoreBrowserService;
 }
 
 export interface ITerminalExt extends Terminal {
