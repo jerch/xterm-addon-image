@@ -6,7 +6,7 @@
 import { IDisposable, IMarker, Terminal } from 'xterm';
 
 // private imports from base repo we build against
-import { BgFlags, Content } from 'common/buffer/Constants';
+import { Attributes, BgFlags, Content, ExtFlags, UnderlineStyle } from 'common/buffer/Constants';
 import type { AttributeData } from 'common/buffer/AttributeData';
 import type { IParams, IDcsHandler, IEscapeSequenceParser } from 'common/parser/Types';
 import type { IBufferLine, IExtendedAttrs, IInputHandler } from 'common/Types';
@@ -23,7 +23,7 @@ export const enum Cell {
 }
 
 // export some privates for local usage
-export { AttributeData, IParams, IDcsHandler, BgFlags, IRenderDimensions, IRenderService, IColorManager, Content };
+export { AttributeData, IParams, IDcsHandler, BgFlags, IRenderDimensions, IRenderService, IColorManager, Content, ExtFlags, Attributes, UnderlineStyle };
 
 /**
  * Plugin ctor options.

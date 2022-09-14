@@ -4,7 +4,7 @@
  */
 import { IDisposable } from 'xterm';
 import { ImageRenderer } from './ImageRenderer';
-import { ITerminalExt, IExtendedAttrsImage, IImageAddonOptions, IImageSpec, IBufferLineExt, BgFlags, Cell, Content, ICellSize } from './Types';
+import { ITerminalExt, IExtendedAttrsImage, IImageAddonOptions, IImageSpec, IBufferLineExt, BgFlags, Cell, Content, ICellSize, ExtFlags, Attributes, UnderlineStyle } from './Types';
 
 
 // fallback default cell size
@@ -15,19 +15,75 @@ export const CELL_SIZE_DEFAULT: ICellSize = {
 
 /**
  * Extend extended attribute to also hold image tile information.
+ *
+ * Object definition is copied from base repo to fully mimick its behavior.
+ * Image data is added as additional public properties `imageId` and `tileId`.
  */
-export class ExtendedAttrsImage implements IExtendedAttrsImage {
+class ExtendedAttrsImage implements IExtendedAttrsImage {
+  private _ext: number = 0;
+  public get ext(): number {
+    if (this._urlId) {
+      return (
+        (this._ext & ~ExtFlags.UNDERLINE_STYLE) |
+        (this.underlineStyle << 26)
+      );
+    }
+    return this._ext;
+  }
+  public set ext(value: number) { this._ext = value; }
+
+  public get underlineStyle(): UnderlineStyle {
+    // Always return the URL style if it has one
+    if (this._urlId) {
+      return UnderlineStyle.DASHED;
+    }
+    return (this._ext & ExtFlags.UNDERLINE_STYLE) >> 26;
+  }
+  public set underlineStyle(value: UnderlineStyle) {
+    this._ext &= ~ExtFlags.UNDERLINE_STYLE;
+    this._ext |= (value << 26) & ExtFlags.UNDERLINE_STYLE;
+  }
+
+  public get underlineColor(): number {
+    return this._ext & (Attributes.CM_MASK | Attributes.RGB_MASK);
+  }
+  public set underlineColor(value: number) {
+    this._ext &= ~(Attributes.CM_MASK | Attributes.RGB_MASK);
+    this._ext |= value & (Attributes.CM_MASK | Attributes.RGB_MASK);
+  }
+
+  private _urlId: number = 0;
+  public get urlId(): number {
+    return this._urlId;
+  }
+  public set urlId(value: number) {
+    this._urlId = value;
+  }
+
   constructor(
-    public underlineStyle = 0,
-    public underlineColor: number = -1,
+    ext: number = 0,
+    urlId: number = 0,
     public imageId = -1,
     public tileId = -1
-  ) { }
-  public clone(): ExtendedAttrsImage {
-    return new ExtendedAttrsImage(this.underlineStyle, this.underlineColor, this.imageId, this.tileId);
+  ) {
+    this._ext = ext;
+    this._urlId = urlId;
   }
+
+  public clone(): ExtendedAttrsImage {
+    /**
+     * Technically we dont need a clone variant of ExtendedAttrsImage,
+     * as we never clone a cell holding image data.
+     * Note: Clone is only meant to be used by the InputHandler for
+     * sticky attributes, which is never the case for image data.
+     * We still provide a proper clone method to reflect the full ext attr
+     * state in case there are future use cases for clone.
+     */
+    return new ExtendedAttrsImage(this._ext, this._urlId, this.imageId, this.tileId);
+  }
+
   public isEmpty(): boolean {
-    return this.underlineStyle === 0 && this.imageId === -1;
+    return this.underlineStyle === UnderlineStyle.NONE && this._urlId === 0 && this.imageId === -1;
   }
 }
 const EMPTY_ATTRS = new ExtendedAttrsImage();
@@ -443,13 +499,13 @@ export class ImageStorage implements IDisposable {
           return;
         }
         // found a plain ExtendedAttrs instance, clone it to new entry
-        line._extendedAttrs[x] = new ExtendedAttrsImage(old.underlineStyle, old.underlineColor, imageId, tileId);
+        line._extendedAttrs[x] = new ExtendedAttrsImage(old.ext, old.urlId, imageId, tileId);
         return;
       }
     }
     // fall-through: always create new ExtendedAttrsImage entry
     line._data[x * Cell.SIZE + Cell.BG] |= BgFlags.HAS_EXTENDED;
-    line._extendedAttrs[x] = new ExtendedAttrsImage(0, -1, imageId, tileId);
+    line._extendedAttrs[x] = new ExtendedAttrsImage(0, 0, imageId, tileId);
   }
 
   private _evictOnAlternate(): void {

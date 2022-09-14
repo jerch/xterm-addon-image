@@ -364,7 +364,7 @@ async function getImageStorageLength(): Promise<number> {
 }
 
 async function getScrollbackPlusRows(): Promise<number> {
-  return page.evaluate('window.term.getOption(\'scrollback\') + window.term.rows');
+  return page.evaluate('window.term.options.scrollback + window.term.rows');
 }
 
 async function writeToTerminal(d: string): Promise<any> {

@@ -87,7 +87,7 @@ export type IImageWorkerMessage = (
 
 export interface IPostMessage {
   <T extends IImageWorkerMessage>(message: T, transfer: Transferable[]): void;
-  <T extends IImageWorkerMessage>(message: T, options?: PostMessageOptions): void;
+  <T extends IImageWorkerMessage>(message: T, options?: any): void;
 }
 
 export interface IImageWorker extends Worker {
