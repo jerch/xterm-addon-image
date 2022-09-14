@@ -10,7 +10,7 @@ rm -rf .git
 
 # clone addon
 cd addons
-git clone --branch v5_adjustments https://github.com/jerch/xterm-addon-image
+git clone https://github.com/jerch/xterm-addon-image
 cd ..
 
 # overwrite files in base repo to have full test integration

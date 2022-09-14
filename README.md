@@ -6,8 +6,6 @@ Image output in xterm.js.
 ![](fixture/example.png)
 
 
-⚠️ This is an experimental addon, that is still under construction. ⚠️
-
 
 ### Install from npm
 
@@ -17,7 +15,8 @@ npm install --save xterm-addon-image
 
 ### Release Compatibility
 
-- 0.1.0 - compatible to xterm.js 4.16.0 - 4.19.0
+- 0.1.0+ - compatible to xterm.js 4.16.0 - 4.19.0
+- 0.2.0+ - compatible to xterm.js 5.0.0
 
 
 ### Clone & Build
@@ -26,7 +25,7 @@ The addon integrates tightly with the xterm.js base repo, esp. for tests and the
 To properly set up all needed resources see `bootstrap.sh` or run it directly with
 
 ```bash
-curl -s https://raw.githubusercontent.com/jerch/xterm-addon-image/master/bootstrap.sh | XTERMJS=4.19.0 bash
+curl -s https://raw.githubusercontent.com/jerch/xterm-addon-image/master/bootstrap.sh | XTERMJS=5.0.0 bash
 ```
 
 The addon sources and npm package definition reside under `addons/xterm-addon-image`.
@@ -204,8 +203,14 @@ _How can I adjust the memory usage?_
   keep that in mind when you try to run more demanding applications with realtime drawing and interactive response needs.
 
 
+### Status
+
+Sixel support and image handling in xterm.js is considered beta quality.
+
+
 ### Changelog
 
+- 0.2.0 compat release for xterm.js 5.0.0
 - 0.1.3 bugfix: avoid striping
 - 0.1.2 bugfix: reset clear flag
 - 0.1.1 bugfixes:
