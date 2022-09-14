@@ -70,7 +70,7 @@ class ExtendedAttrsImage implements IExtendedAttrsImage {
     this._urlId = urlId;
   }
 
-  public clone(): ExtendedAttrsImage {
+  public clone(): IExtendedAttrsImage {
     /**
      * Technically we dont need a clone variant of ExtendedAttrsImage,
      * as we never clone a cell holding image data.

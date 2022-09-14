@@ -55,6 +55,7 @@ export interface IResetHandler {
 export interface IExtendedAttrsImage extends IExtendedAttrs {
   imageId: number;
   tileId: number;
+  clone(): IExtendedAttrsImage;
 }
 
 /* eslint-disable */
