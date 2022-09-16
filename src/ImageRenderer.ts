@@ -28,8 +28,8 @@ export class ImageRenderer implements IDisposable {
   private _oldSetRenderer: ((renderer: any) => void) | undefined;
 
   // drawing primitive - canvas
-  public static createCanvas(width: number, height: number): HTMLCanvasElement {
-    const canvas = document.createElement('canvas');
+  public static createCanvas(base: Window, width: number, height: number): HTMLCanvasElement {
+    const canvas = base.document.createElement('canvas');
     canvas.width = width | 0;
     canvas.height = height | 0;
     return canvas;
@@ -204,7 +204,7 @@ export class ImageRenderer implements IDisposable {
     const finalWidth = width + sx > img.width ? img.width - sx : width;
     const finalHeight = sy + height > img.height ? img.height - sy : height;
 
-    const canvas = ImageRenderer.createCanvas(finalWidth, finalHeight);
+    const canvas = ImageRenderer.createCanvas(this._terminal._core._coreBrowserService.window, finalWidth, finalHeight);
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(
@@ -274,6 +274,7 @@ export class ImageRenderer implements IDisposable {
       return;
     }
     const canvas = ImageRenderer.createCanvas(
+      this._terminal._core._coreBrowserService.window,
       Math.ceil(spec.orig!.width * currentWidth / originalWidth),
       Math.ceil(spec.orig!.height * currentHeight / originalHeight)
     );
@@ -304,7 +305,7 @@ export class ImageRenderer implements IDisposable {
   }
 
   private _insertLayerToDom(): void {
-    this.canvas = ImageRenderer.createCanvas(this.dimensions?.canvasWidth || 0, this.dimensions?.canvasHeight || 0);
+    this.canvas = ImageRenderer.createCanvas(this._terminal._core._coreBrowserService.window, this.dimensions?.canvasWidth || 0, this.dimensions?.canvasHeight || 0);
     this.canvas.classList.add('xterm-image-layer');
     this._terminal._core.screenElement?.appendChild(this.canvas);
     this._ctx = this.canvas.getContext('2d', { alpha: true, desynchronized: true });
@@ -320,7 +321,7 @@ export class ImageRenderer implements IDisposable {
 
     // create blueprint to fill placeholder with
     const bWidth = 32;  // must be 2^n
-    const blueprint = ImageRenderer.createCanvas(bWidth, height);
+    const blueprint = ImageRenderer.createCanvas(this._terminal._core._coreBrowserService.window, bWidth, height);
     const ctx = blueprint.getContext('2d', { alpha: false });
     if (!ctx) return;
     const imgData = ImageRenderer.createImageData(ctx, bWidth, height);
@@ -339,7 +340,7 @@ export class ImageRenderer implements IDisposable {
 
     // create placeholder line, width aligned to blueprint width
     const width = (screen.width + bWidth - 1) & ~(bWidth - 1) || PLACEHOLDER_LENGTH;
-    this._placeholder = ImageRenderer.createCanvas(width, height);
+    this._placeholder = ImageRenderer.createCanvas(this._terminal._core._coreBrowserService.window, width, height);
     const ctx2 = this._placeholder.getContext('2d', { alpha: false });
     if (!ctx2) {
       this._placeholder = undefined;

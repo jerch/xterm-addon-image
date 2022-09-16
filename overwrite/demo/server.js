@@ -20,19 +20,19 @@ function startServer() {
       logs = {};
 
   app.use('/xterm.css', express.static(__dirname + '/../css/xterm.css'));
-  app.get('/logo.png', (req, res) => { // lgtm [js/missing-rate-limiting]
+  app.get('/logo.png', (req, res) => {
     res.sendFile(__dirname + '/logo.png');
   });
 
-  app.get('/', (req, res) => { // lgtm [js/missing-rate-limiting]
+  app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
   });
 
-  app.get('/test', (req, res) => { // lgtm [js/missing-rate-limiting]
+  app.get('/test', (req, res) => {
     res.sendFile(__dirname + '/test.html');
   });
 
-  app.get('/style.css', (req, res) => { // lgtm [js/missing-rate-limiting]
+  app.get('/style.css', (req, res) => {
     res.sendFile(__dirname + '/style.css');
   });
 
@@ -115,6 +115,9 @@ function startServer() {
     }
     const send = USE_BINARY ? bufferUtf8(ws, 5) : buffer(ws, 5);
 
+    // WARNING: This is a naive implementation that will not throttle the flow of data. This means
+    // it could flood the communication channel and make the terminal unresponsive. Learn more about
+    // the problem and how to implement flow control at https://xtermjs.org/docs/guides/flowcontrol/
     term.on('data', function(data) {
       try {
         send(data);

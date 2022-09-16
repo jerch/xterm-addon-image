@@ -103,7 +103,11 @@ export class SixelHandler implements IDcsHandler, IResetHandler {
       if (!data) {
         return true;
       }
-      const canvas = ImageRenderer.createCanvas(data.width, data.height);
+      const canvas = ImageRenderer.createCanvas(
+        this._coreTerminal._core._coreBrowserService.window,
+        data.width,
+        data.height
+      );
       const ctx = canvas.getContext('2d');
       if (ctx) {
         const imageData = ImageRenderer.createImageData(ctx, data.width, data.height, data.buffer);

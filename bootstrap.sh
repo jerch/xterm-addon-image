@@ -15,11 +15,11 @@ cd ..
 
 # overwrite files in base repo to have full test integration
 cp -avx addons/xterm-addon-image/overwrite/* .
+# client.ts is named ts_copy to avoid TS recognizing it, rename
+mv demo/client.ts_copy demo/client.ts
 
 # to fix eslint
 cp -avx addons/xterm-addon-image/overwrite/.eslintrc.json .
-rm addons/xterm-addon-image/overwrite/demo/client.ts
-
 
 # init all
 yarn

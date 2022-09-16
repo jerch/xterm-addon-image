@@ -6,14 +6,14 @@
 import { IDisposable, IMarker, Terminal } from 'xterm';
 
 // private imports from base repo we build against
-import { BgFlags, Content } from 'common/buffer/Constants';
+import { Attributes, BgFlags, Content, ExtFlags, UnderlineStyle } from 'common/buffer/Constants';
 import type { AttributeData } from 'common/buffer/AttributeData';
 import type { IParams, IDcsHandler, IEscapeSequenceParser } from 'common/parser/Types';
 import type { IBufferLine, IExtendedAttrs, IInputHandler } from 'common/Types';
 import type { IDirtyRowService } from 'common/services/Services';
 import type { IColorManager, ITerminal } from 'browser/Types';
 import type { IRenderDimensions } from 'browser/renderer/Types';
-import type { IRenderService } from 'browser/services/Services';
+import type { ICoreBrowserService, IRenderService } from 'browser/services/Services';
 
 export const enum Cell {
   CONTENT = 0,  // codepoint and wcwidth information (enum Content)
@@ -23,7 +23,7 @@ export const enum Cell {
 }
 
 // export some privates for local usage
-export { AttributeData, IParams, IDcsHandler, BgFlags, IRenderDimensions, IRenderService, IColorManager, Content };
+export { AttributeData, IParams, IDcsHandler, BgFlags, IRenderDimensions, IRenderService, IColorManager, Content, ExtFlags, Attributes, UnderlineStyle };
 
 /**
  * Plugin ctor options.
@@ -55,6 +55,7 @@ export interface IResetHandler {
 export interface IExtendedAttrsImage extends IExtendedAttrs {
   imageId: number;
   tileId: number;
+  clone(): IExtendedAttrsImage;
 }
 
 /* eslint-disable */
@@ -74,6 +75,7 @@ export interface ICoreTerminalExt extends ITerminal {
   _colorManager: IColorManager;
   _inputHandler: IInputHandlerExt;
   _renderService: IRenderService;
+  _coreBrowserService: ICoreBrowserService;
 }
 
 export interface ITerminalExt extends Terminal {

@@ -90,7 +90,8 @@ describe.only('ImageAddon', () => {
       '_core._inputHandler',
       '_core._inputHandler._parser',
       '_core._inputHandler._curAttrData',
-      '_core._colorManager'
+      '_core._colorManager',
+      '_core._coreBrowserService'
     ];
     for (const prop of accessors) {
       assert.equal(
@@ -364,7 +365,7 @@ async function getImageStorageLength(): Promise<number> {
 }
 
 async function getScrollbackPlusRows(): Promise<number> {
-  return page.evaluate('window.term.getOption(\'scrollback\') + window.term.rows');
+  return page.evaluate('window.term.options.scrollback + window.term.rows');
 }
 
 async function writeToTerminal(d: string): Promise<any> {

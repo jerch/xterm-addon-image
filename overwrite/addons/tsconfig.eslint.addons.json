@@ -21,6 +21,7 @@
   "include": [
     "../typings/xterm.d.ts",
     "./**/src/*",
+    "./**/src/**/*",
     "./**/src-worker/*",
     "./**/test/*",
     "./**/benchmark/*"
