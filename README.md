@@ -15,8 +15,8 @@ npm install --save xterm-addon-image
 
 ### Release Compatibility
 
-- 0.1.0+ - compatible to xterm.js 4.16.0 - 4.19.0
-- 0.2.0+ - compatible to xterm.js 5.0.0
+- 0.1.x - compatible to xterm.js 4.16.0 - 4.19.0
+- 0.2.x - compatible to xterm.js 5.0.0
 
 
 ### Clone & Build
