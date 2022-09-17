@@ -16,7 +16,7 @@ function print_palette() {
       done
       echo -ne "\$-"
     done
-    echo -ne "\x1b\\"
+    echo -e "\x1b\\"
   done
 }
 
