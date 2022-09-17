@@ -1,122 +1,103 @@
 /**
- * Copyright (c) 2020 Joerg Breitbart.
+ * Copyright (c) 2020, 2022 Joerg Breitbart.
  * @license MIT
  */
 
 import { ImageStorage } from './ImageStorage';
 import { IDcsHandler, IParams, IImageAddonOptions, ITerminalExt, AttributeData, IColorManager, IResetHandler } from './Types';
-import { toRGBA8888, BIG_ENDIAN } from 'sixel/lib/Colors';
+import { toRGBA8888, BIG_ENDIAN, PALETTE_ANSI_256, PALETTE_VT340_COLOR } from 'sixel/lib/Colors';
 import { RGBA8888 } from 'sixel/lib/Types';
-import { WorkerManager } from './WorkerManager';
 import { ImageRenderer } from './ImageRenderer';
+
+import { DecoderAsync, Decoder } from 'sixel/lib/Decoder';
+
+// always free decoder ressources after decoding if it exceeds this limit
+const MEM_PERMA_LIMIT = 4194304; // 1024 pixels * 1024 pixels * 4 channels = 4MB
+
+// custom default palette: VT340 (lower 16 colors) + ANSI256 (up to 256) + zeroed (up to 4096)
+const DEFAULT_PALETTE = PALETTE_ANSI_256;
+DEFAULT_PALETTE.set(PALETTE_VT340_COLOR);
 
 
 export class SixelHandler implements IDcsHandler, IResetHandler {
   private _size = 0;
-  private _fillColor = 0;
   private _aborted = false;
+  private _dec: Decoder | undefined;
 
   constructor(
     private readonly _opts: IImageAddonOptions,
     private readonly _storage: ImageStorage,
-    private readonly _coreTerminal: ITerminalExt,
-    private readonly _workerManager: WorkerManager
-  ) {}
+    private readonly _coreTerminal: ITerminalExt
+  ) {
+    DecoderAsync({
+      memoryLimit: this._opts.pixelLimit * 4,
+      palette: DEFAULT_PALETTE
+    }).then(d => this._dec = d);
+  }
 
   public reset(): void {
-    // TODO: reset the sixel decoder to defaults
-    // (only local version, as worker gets reloaded already)
-    console.log('SixelHandler.reset...');
+    /**
+     * reset sixel decoder to defaults:
+     * - release all memory
+     * - nullify palette (4096)
+     * - apply default palette (256)
+     */
+    if (this._dec) {
+      this._dec.release();
+      // FIXME: missing interface on decoder to nullify full palette
+      (this._dec as any)._palette.fill(0);
+      this._dec.init(0, DEFAULT_PALETTE, this._opts.sixelPaletteLimit);
+    }
   }
 
-  // called on new SIXEL DCS sequence
   public hook(params: IParams): void {
-    // NOOP fall-through for all actions if worker is in non-working condition
-    this._aborted = this._workerManager.failed;
-    if (this._aborted) {
-      return;
-    }
-    this._fillColor = params.params[1] === 1 ? 0 : extractActiveBg(
-      this._coreTerminal._core._inputHandler._curAttrData,
-      this._coreTerminal._core._colorManager.colors);
     this._size = 0;
-    this._workerManager.sixelInit(this._fillColor, this._opts.sixelPaletteLimit);
+    this._aborted = false;
+    if (this._dec) {
+      const fillColor = params.params[1] === 1 ? 0 : extractActiveBg(
+        this._coreTerminal._core._inputHandler._curAttrData,
+        this._coreTerminal._core._colorManager.colors);
+      this._dec.init(fillColor, null, this._opts.sixelPaletteLimit);
+    }
   }
 
-  // called for any SIXEL data chunk
   public put(data: Uint32Array, start: number, end: number): void {
-    if (this._aborted || this._workerManager.failed) {
-      return;
-    }
-    if (this._workerManager.sizeExceeded) {
-      this._workerManager.sixelEnd(false);
-      this._aborted = true;
+    if (this._aborted || !this._dec) {
       return;
     }
     this._size += end - start;
     if (this._size > this._opts.sixelSizeLimit) {
       console.warn(`SIXEL: too much data, aborting`);
-      this._workerManager.sixelEnd(false);
       this._aborted = true;
+      this._dec.release();
       return;
     }
-    /**
-     * copy data over to worker:
-     * - narrow data from uint32 to uint8 (high codepoints are not valid for SIXELs)
-     * - push multiple buffer chunks until all data got written
-     *
-     * We cannot limit data flow at the PUT stage as async pausing is
-     * only implemented for UNHOOK in the parser. To avoid OOM from message flooding
-     * we have `sixelSizeLimit` above in place.
-     */
-    let p = start;
-    while (p < end) {
-      const chunk = new Uint8Array(this._workerManager.getChunk());
-      const length = Math.min(end - p, chunk.length);
-      chunk.set(data.subarray(p, p += length));
-      this._workerManager.sixelPut(chunk, length);
+    try {
+      this._dec.decode(data, start, end);
+    } catch (e) {
+      console.warn(`SIXEL: error while decoding image - ${e}`);
+      this._aborted = true;
+      this._dec.release();
     }
   }
 
-  /**
-   * Called on finalizing the SIXEL DCS sequence.
-   * Some notes on control flow and return values:
-   * - worker is in non-working condition: NOOP with sync return
-   * - `sixelSizeLimit` exceeded: NOOP with sync return
-   * - `sixelEnd(false)`: NOOP with sync return
-   * - `sixelEnd(true)`:
-   *    async path waiting for `Promise<ISixelImage | null>`
-   *    from worker depending on decoding success,
-   *    a valid image definition will be added
-   *    to the terminal before finally returning
-   */
   public unhook(success: boolean): boolean | Promise<boolean> {
-    if (this._aborted || this._workerManager.failed) {
-      return true;
-    }
-    const imgPromise = this._workerManager.sixelEnd(success);
-    if (!imgPromise) {
-      return true;
-    }
+    if (this._aborted || !success || !this._dec) return true;
 
-    return imgPromise.then(data => {
-      if (!data) {
-        return true;
-      }
-      const canvas = ImageRenderer.createCanvas(
-        this._coreTerminal._core._coreBrowserService.window,
-        data.width,
-        data.height
-      );
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        const imageData = ImageRenderer.createImageData(ctx, data.width, data.height, data.buffer);
-        ctx.putImageData(imageData, 0, 0);  // still taking pretty long for big images
-        this._storage.addImage(canvas);
-      }
-      this._workerManager.sixelSendBuffer(data.buffer);
-      return true;
-    });
+    const width = this._dec.width;
+    const height = this._dec.height;
+
+    // FIXME: move cursor even if image is zero...
+    console.log(width, height);
+    if (!width || ! height) return true;
+
+    const canvas = ImageRenderer.createCanvas(this._coreTerminal._core._coreBrowserService.window, width, height);
+    canvas.getContext('2d')?.putImageData(new ImageData(this._dec.data8, width, height), 0, 0);
+    if (this._dec.memoryUsage > MEM_PERMA_LIMIT) {
+      this._dec.release();
+    }
+    this._storage.addImage(canvas);
+    return true;
   }
 }
 

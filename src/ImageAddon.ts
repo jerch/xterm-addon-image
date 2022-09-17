@@ -8,7 +8,6 @@ import { ImageRenderer } from './ImageRenderer';
 import { ImageStorage, CELL_SIZE_DEFAULT } from './ImageStorage';
 import { SixelHandler } from './SixelHandler';
 import { ITerminalExt, IImageAddonOptions, IResetHandler } from './Types';
-import { WorkerManager } from './WorkerManager';
 
 
 // default values of addon ctor options
@@ -53,14 +52,11 @@ export class ImageAddon implements ITerminalAddon {
   private _renderer: ImageRenderer | undefined;
   private _disposables: IDisposable[] = [];
   private _terminal: ITerminalExt | undefined;
-  private _workerManager: WorkerManager;
   private _handlers: Map<String, IResetHandler> = new Map();
 
   constructor(workerPath: string, opts: Partial<IImageAddonOptions>) {
     this._opts = Object.assign({}, DEFAULT_OPTIONS, opts);
     this._defaultOpts = Object.assign({}, DEFAULT_OPTIONS, opts);
-    this._workerManager = new WorkerManager(workerPath, this._opts);
-    this._disposeLater(this._workerManager);
   }
 
   public dispose(): void {
@@ -130,7 +126,7 @@ export class ImageAddon implements ITerminalAddon {
 
     // SIXEL handler
     if (this._opts.sixelSupport) {
-      const sixelHandler = new SixelHandler(this._opts, this._storage, terminal, this._workerManager);
+      const sixelHandler = new SixelHandler(this._opts, this._storage!, terminal);
       this._handlers.set('sixel', sixelHandler);
       this._disposeLater(
         terminal._core._inputHandler._parser.registerDcsHandler({ final: 'q' }, sixelHandler)
@@ -145,10 +141,9 @@ export class ImageAddon implements ITerminalAddon {
     this._opts.sixelPaletteLimit = this._defaultOpts.sixelPaletteLimit;
     // also clear image storage
     this._storage?.reset();
-    // reset worker and protocol handlers
-    this._workerManager.reset();
-    for (const value of this._handlers.values()) {
-      value.reset();
+    // reset protocol handlers
+    for (const handler of this._handlers.values()) {
+      handler.reset();
     }
     return false;
   }
@@ -222,7 +217,7 @@ export class ImageAddon implements ITerminalAddon {
     // 4 - SIXEL support
     // 9 - charsets
     // 22 - ANSI colors
-    if (this._opts.sixelSupport && !this._workerManager.failed) {
+    if (this._opts.sixelSupport) {
       this._report(`\x1b[?62;4;9;22c`);
       return true;
     }
@@ -243,11 +238,6 @@ export class ImageAddon implements ITerminalAddon {
     if (params.length < 2) {
       return true;
     }
-    if (this._workerManager.failed) {
-      // on worker error report graphics caps as not supported
-      this._report(`\x1b[?${params[0]};${GaStatus.ITEM_ERROR}S`);
-      return true;
-    }
     if (params[0] === GaItem.COLORS) {
       switch (params[1]) {
         case GaAction.READ:
@@ -256,8 +246,10 @@ export class ImageAddon implements ITerminalAddon {
         case GaAction.SET_DEFAULT:
           this._opts.sixelPaletteLimit = this._defaultOpts.sixelPaletteLimit;
           this._report(`\x1b[?${params[0]};${GaStatus.SUCCESS};${this._opts.sixelPaletteLimit}S`);
-          // also reset default palette colors for now
-          this._workerManager.reset();
+          // also reset protocol handlers for now
+          for (const handler of this._handlers.values()) {
+            handler.reset();
+          }
           return true;
         case GaAction.SET:
           if (params.length > 2 && !(params[2] instanceof Array) && params[2] <= MAX_SIXEL_PALETTE_SIZE) {
