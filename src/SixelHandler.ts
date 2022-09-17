@@ -87,9 +87,13 @@ export class SixelHandler implements IDcsHandler, IResetHandler {
     const width = this._dec.width;
     const height = this._dec.height;
 
-    // FIXME: move cursor even if image is zero...
-    console.log(width, height);
-    if (!width || ! height) return true;
+    // https://github.com/jerch/xterm-addon-image/issues/37
+    if (!width || ! height) {
+      if (height) {
+        this._storage.advanceCursor(height);
+      }
+      return true;
+    }
 
     const canvas = ImageRenderer.createCanvas(this._coreTerminal._core._coreBrowserService.window, width, height);
     canvas.getContext('2d')?.putImageData(new ImageData(this._dec.data8, width, height), 0, 0);
