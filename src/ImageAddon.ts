@@ -54,7 +54,7 @@ export class ImageAddon implements ITerminalAddon {
   private _terminal: ITerminalExt | undefined;
   private _handlers: Map<String, IResetHandler> = new Map();
 
-  constructor(workerPath: string, opts: Partial<IImageAddonOptions>) {
+  constructor(opts?: Partial<IImageAddonOptions>) {
     this._opts = Object.assign({}, DEFAULT_OPTIONS, opts);
     this._defaultOpts = Object.assign({}, DEFAULT_OPTIONS, opts);
   }

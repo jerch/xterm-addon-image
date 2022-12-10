@@ -70,7 +70,7 @@ declare module 'xterm-addon-image' {
   }
 
   export class ImageAddon implements ITerminalAddon {
-    constructor(workerPath: string, options?: IImageAddonOptions);
+    constructor(options?: IImageAddonOptions);
     public activate(terminal: Terminal): void;
     public dispose(): void;
 

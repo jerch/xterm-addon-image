@@ -20,7 +20,7 @@ const height = 600;
 
 // eslint-disable-next-line
 declare const ImageAddon: {
-  new(workerPath: string, options?: Partial<IImageAddonOptions>): any;
+  new(options?: Partial<IImageAddonOptions>): any;
 };
 
 interface ITestData {
@@ -37,8 +37,6 @@ interface IDimensions {
   width: number;
   height: number;
 }
-
-const IMAGE_WORKER_PATH = '/workers/xterm-addon-image-worker.js';
 
 // image: 640 x 80, 512 color
 const TESTDATA: ITestData = (() => {
@@ -76,9 +74,9 @@ describe.only('ImageAddon', () => {
     await page.goto(APP);
     await openTerminal(page);
     await page.evaluate(opts => {
-      (window as any).imageAddon = new ImageAddon(opts.workerPath, opts.opts);
+      (window as any).imageAddon = new ImageAddon(opts.opts);
       (window as any).term.loadAddon((window as any).imageAddon);
-    }, { workerPath: IMAGE_WORKER_PATH, opts: { sixelPaletteLimit: 512 } });
+    }, {opts: { sixelPaletteLimit: 512 } });
   });
 
   it('test for private accessors', async () => {
@@ -133,9 +131,9 @@ describe.only('ImageAddon', () => {
         showPlaceholder: false
       };
       await page.evaluate(opts => {
-        (window as any).imageAddonCustom = new ImageAddon(opts.workerPath, opts.opts);
+        (window as any).imageAddonCustom = new ImageAddon(opts.opts);
         (window as any).term.loadAddon((window as any).imageAddonCustom);
-      }, { workerPath: IMAGE_WORKER_PATH, opts: customSettings });
+      }, {opts: customSettings });
       assert.deepEqual(await page.evaluate(`window.imageAddonCustom._opts`), customSettings);
     });
   });

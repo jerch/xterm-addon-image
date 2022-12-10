@@ -83,10 +83,20 @@ export class SixelHandler implements IDcsHandler, IResetHandler {
   }
 
   public unhook(success: boolean): boolean | Promise<boolean> {
-    if (this._aborted || !success || !this._dec) return true;
+    if (this._aborted || !success || !this._dec) {
+      return true;
+    }
 
     const width = this._dec.width;
     const height = this._dec.height;
+
+    // partial fix for https://github.com/jerch/xterm-addon-image/issues/37
+    if (!width || ! height) {
+      if (height) {
+        this._storage.advanceCursor(height);
+      }
+      return true;
+    }
 
     const canvas = ImageRenderer.createCanvas(this._coreTerminal._core._coreBrowserService.window, width, height);
     canvas.getContext('2d')?.putImageData(new ImageData(this._dec.data8, width, height), 0, 0);
