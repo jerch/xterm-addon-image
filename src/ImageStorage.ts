@@ -191,24 +191,6 @@ export class ImageStorage implements IDisposable {
   }
 
   /**
-   * Only advance text cursor.
-   * This is an edge case from empty sixels carrying only a height but no pixels.
-   * Fixes https://github.com/jerch/xterm-addon-image/issues/37.
-   */
-  public advanceCursor(height: number): void {
-    if (this._opts.sixelScrolling) {
-      let cellSize = this._renderer.cellSize;
-      if (cellSize.width === -1 || cellSize.height === -1) {
-        cellSize = CELL_SIZE_DEFAULT;
-      }
-      const rows = Math.ceil(height / cellSize.height);
-      for (let i = 1; i < rows; ++i) {
-        this._terminal._core._inputHandler.lineFeed();
-      }
-    }
-  }
-
-  /**
    * Method to add an image to the storage.
    */
   public addImage(img: HTMLCanvasElement): void {
