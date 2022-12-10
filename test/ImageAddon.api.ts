@@ -76,7 +76,7 @@ describe.only('ImageAddon', () => {
     await page.evaluate(opts => {
       (window as any).imageAddon = new ImageAddon(opts.opts);
       (window as any).term.loadAddon((window as any).imageAddon);
-    }, {opts: { sixelPaletteLimit: 512 } });
+    }, { opts: { sixelPaletteLimit: 512 } });
   });
 
   it('test for private accessors', async () => {
@@ -133,7 +133,7 @@ describe.only('ImageAddon', () => {
       await page.evaluate(opts => {
         (window as any).imageAddonCustom = new ImageAddon(opts.opts);
         (window as any).term.loadAddon((window as any).imageAddonCustom);
-      }, {opts: customSettings });
+      }, { opts: customSettings });
       assert.deepEqual(await page.evaluate(`window.imageAddonCustom._opts`), customSettings);
     });
   });

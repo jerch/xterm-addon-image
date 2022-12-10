@@ -32,7 +32,7 @@ export class SixelHandler implements IDcsHandler, IResetHandler {
     DecoderAsync({
       memoryLimit: this._opts.pixelLimit * 4,
       palette: DEFAULT_PALETTE,
-      paletteLimit: this._opts.sixelPaletteLimit,
+      paletteLimit: this._opts.sixelPaletteLimit
     }).then(d => this._dec = d);
   }
 
