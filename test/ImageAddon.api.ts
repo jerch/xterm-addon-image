@@ -20,7 +20,7 @@ const height = 600;
 
 // eslint-disable-next-line
 declare const ImageAddon: {
-  new(workerPath: string, options?: Partial<IImageAddonOptions>): any;
+  new(options?: Partial<IImageAddonOptions>): any;
 };
 
 interface ITestData {
@@ -37,8 +37,6 @@ interface IDimensions {
   width: number;
   height: number;
 }
-
-const IMAGE_WORKER_PATH = '/workers/xterm-addon-image-worker.js';
 
 // image: 640 x 80, 512 color
 const TESTDATA: ITestData = (() => {
@@ -76,9 +74,9 @@ describe.only('ImageAddon', () => {
     await page.goto(APP);
     await openTerminal(page);
     await page.evaluate(opts => {
-      (window as any).imageAddon = new ImageAddon(opts.workerPath, opts.opts);
+      (window as any).imageAddon = new ImageAddon(opts.opts);
       (window as any).term.loadAddon((window as any).imageAddon);
-    }, { workerPath: IMAGE_WORKER_PATH, opts: { sixelPaletteLimit: 512 } });
+    }, { opts: { sixelPaletteLimit: 512 } });
   });
 
   it('test for private accessors', async () => {
@@ -133,9 +131,9 @@ describe.only('ImageAddon', () => {
         showPlaceholder: false
       };
       await page.evaluate(opts => {
-        (window as any).imageAddonCustom = new ImageAddon(opts.workerPath, opts.opts);
+        (window as any).imageAddonCustom = new ImageAddon(opts.opts);
         (window as any).term.loadAddon((window as any).imageAddonCustom);
-      }, { workerPath: IMAGE_WORKER_PATH, opts: customSettings });
+      }, { opts: customSettings });
       assert.deepEqual(await page.evaluate(`window.imageAddonCustom._opts`), customSettings);
     });
   });
@@ -241,106 +239,6 @@ describe.only('ImageAddon', () => {
       assert.equal(newUsage, usage);
     });
   });
-
-  describe('worker integration & manager', () => {
-    async function execOnManager(prop?: string): Promise<any> {
-      if (prop) {
-        return page.evaluate('window.imageAddon._workerManager.' + prop);
-      }
-      return page.evaluate('window.imageAddon._workerManager');
-    }
-    it('gets URL from addon settings', async () => {
-      // hard coded default
-      assert.equal(await execOnManager('url'), '/workers/xterm-addon-image-worker.js');
-      // custom
-      await page.evaluate(opts => {
-        (window as any).imageAddonCustom = new ImageAddon('xyz.js', opts);
-        (window as any).term.loadAddon((window as any).imageAddonCustom);
-      }, {});
-      assert.equal(await page.evaluate(`window.imageAddonCustom._workerManager.url`), 'xyz.js');
-    });
-    it('timed chunk pooling', async () =>{
-      // image fits into one chunk
-      await writeToTerminal(SIXEL_SEQ_0);
-      assert.equal(await execOnManager('_memPool.length'), 1);
-      assert.notEqual(await execOnManager('_poolCheckerInterval'), undefined);
-      const lastActive = await execOnManager('_lastActive');
-      assert.notEqual(lastActive, 0);
-    });
-    it.skip('max chunks with cleanup after 20s', async function (): Promise<void> {
-      // Note: by default this test is skipped as it takes really long
-      this.timeout(30000);
-      // more than max chunks created (exceeding pooling)
-      const count = 100; // MAX_CHUNKS is 50
-      const chunkLength = Math.ceil(SIXEL_SEQ_0.length/count);
-      for (let i = 0; i < count; ++i) {
-        const offset = i * chunkLength;
-        page.evaluate(data => (window as any).term.write(data), SIXEL_SEQ_0.slice(offset, offset + chunkLength));
-      }
-      await writeToTerminal(''); // wait until all got consumed
-      assert.equal(await execOnManager('_memPool.length'), 50);
-      assert.notEqual(await execOnManager('_poolCheckerInterval'), undefined);
-      const lastActive = await execOnManager('_lastActive');
-      assert.notEqual(lastActive, 0);
-      // should drop back to 0 after 20000
-      await new Promise<void>(res => setTimeout(async () => {
-        assert.equal(await execOnManager('_memPool.length'), 0);
-        assert.equal(await execOnManager('_poolCheckerInterval'), undefined);
-        res();
-      }, 20000));
-    });
-    it('dispose should stop everything', async () => {
-      await writeToTerminal(SIXEL_SEQ_0);
-      const mustResolveWithDispose = execOnManager('sixelEnd(true)').then(() => 'yeah');
-      await execOnManager('dispose()');
-      // worker gone
-      assert.equal(await execOnManager('_worker'), undefined);
-      // pending resolver cleared
-      assert.equal(await mustResolveWithDispose, 'yeah');
-      assert.equal(await execOnManager('_sixelResolver'), undefined);
-      // pool and checker cleared
-      assert.equal(await execOnManager('_memPool.length'), 0);
-      assert.equal(await execOnManager('_poolCheckerInterval'), undefined);
-    });
-    describe('handle worker loading error gracefully', () => {
-      beforeEach(async () => {
-        await page.evaluate(opts => {
-          (window as any).imageAddonCustom = new ImageAddon('xyz.js', opts);
-          (window as any).term.loadAddon((window as any).imageAddonCustom);
-        }, {});
-      });
-      it('failed is set upon first worker access', async () => {
-        assert.equal(await page.evaluate(`window.imageAddonCustom._workerManager.failed`), false);
-        // We have to test it here with .endSixel as it is the only promised method
-        // we have implemented. This is needed to wait here for the full request-response
-        // cycling of the initial ACK message after the lazy worker loading.
-        assert.equal(await page.evaluate(`window.imageAddonCustom._workerManager.sixelEnd(true)`), null);
-        // Alternatively we could have waited for some time after the first `worker` access.
-        // await page.evaluate(`window.imageAddonCustom._workerManager.worker`);
-        // await new Promise(res => setTimeout(res, 50));
-        assert.equal(await page.evaluate(`window.imageAddonCustom._workerManager.failed`), true);
-        // Note: For the sixel handler this means that early `sixelInit` and `sixelPut` API calls
-        // are still not a NOOP, as the worker instance in the manager still looks healthy.
-        // This is not really a problem, as those calls are only sending and not waiting for response.
-        // A minor optimization in the handler tests for the failed state on every action to spot it as
-        // early as possible.
-      });
-      it('sequence turns into NOOP, handler does not block forever', async () => {
-        // dispose normal image addon
-        await page.evaluate(`window.imageAddon.dispose()`);
-        // proper SIXEL sequence
-        await writeToTerminal('#' + SIXEL_SEQ_0 + '#');
-        assert.deepEqual(await getCursor(), [2, 0]);
-        // sequence with color definition but missing SIXEL bytes (0 pixel image)
-        await writeToTerminal('#' + '\x1bPq#14;2;0;100;100\x1b\\' + '#');
-        assert.deepEqual(await getCursor(), [4, 0]);
-        // shortest possible sequence (no data bytes at all)
-        await writeToTerminal('#' + '\x1bPq\x1b\\' + '#');
-        assert.deepEqual(await getCursor(), [6, 0]);
-      });
-    });
-  });
-
 });
 
 /**

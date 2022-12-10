@@ -32,26 +32,4 @@ const addon = {
   mode: 'production'
 };
 
-// worker target bundled as ./lib/xterm-addon-image-worker.js
-const worker = {
-  entry: `./out-worker/${workerName}.js`,
-  devtool: 'source-map',
-  module: {
-    rules: [
-      {
-        test: /\.js$/,
-        use: ["source-map-loader"],
-        enforce: "pre",
-        exclude: /node_modules/
-      }
-    ]
-  },
-  output: {
-    filename: mainFileWorker,
-    path: path.resolve('./lib'),
-    libraryTarget: 'umd'
-  },
-  mode: 'production'
-};
-
-module.exports = [addon, worker];
+module.exports = [addon];

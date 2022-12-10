@@ -16,7 +16,8 @@ npm install --save xterm-addon-image
 ### Release Compatibility
 
 - 0.1.x - compatible to xterm.js 4.16.0 - 4.19.0
-- 0.2.x - compatible to xterm.js 5.0.0
+- 0.2.0 - compatible to xterm.js 5.0.0
+- 0.2.1 - compatible to xterm.js 5.0.0
 
 
 ### Clone & Build
@@ -47,13 +48,14 @@ const customSettings: IImageAddonOptions = {
 
 // initialization
 const terminal = new Terminal();
-const imageAddon = new ImageAddon(WORKER_PATH, customSettings);
+const imageAddon = new ImageAddon(customSettings);
 terminal.loadAddon(imageAddon);
 ```
 
 ### General Notes
 
-- The image decoding is done with a worker, therefore the addon will only work, if you expose the worker file as well. The worker is distributed under `lib/xterm-addon-image-worker.js`. Place the exported worker path as the first argument of the addon constructor, e.g. `new ImageAddon('/your/path/to/image/worker')`. Additionally make sure, that your main integration has proper read and execution permissions on the worker file, otherwise the addon will log a worker error and disable itself on the first image decoding attempt (lazy evaluated).
+- *IMPORTANT:* The worker approach as done in previous releases got removed.
+  The addon contructor no longer expects a worker path as first argument.
 
 - By default the addon will activate these `windowOptions` reports on the terminal:
   - getWinSizePixels (CSI 14 t)
@@ -89,15 +91,15 @@ terminal.loadAddon(imageAddon);
   The limit can be increased to a maximum of 4096 registers (via `sixelPaletteLimit`).
 
   The default palette is a mixture of VT340 colors (lower 16 registers), xterm colors (up to 256) and zeros (up to 4096).
-  There is no private/shared palette distinction, palette colors are always carried over from a previous.
-  Restoring the default palette size and colors is possible with `XTSMGRAPHICS 1 ; 2` (binary: `\x1b[?1;2S`),
-  the default palette is only restored on RIS nd DECSTR.
+  There is no private/shared palette distinction, palette colors are always carried over from a previous sixel image.
+  Restoring the default palette size and colors is possible with `XTSMGRAPHICS 1 ; 2` (binary: `\x1b[?1;2S`).
+  It gets also restored automatically on RIS and DECSTR.
 
   Other than on older terminals, the underlying SIXEL library applies colors immediately to individual pixels
   (*printer mode*), thus it is technically possible to use more colors in one image than the palette has color slots.
   This feature is called *high-color* in libsixel.
 
-  A terminal wide shared palette mode with late output coloring is not supported,
+  A terminal wide shared palette mode with late indexed coloring of the output is not supported,
   therefore palette animations cannot be used.
 
 - **SIXEL Raster Attributes Handling**  
@@ -139,14 +141,12 @@ The addon does most image processing in Javascript and therefore can occupy a ra
   `term.write` might stock up incoming chunks. To circumvent this, you will need proper flow control (see xterm.js docs). Note that with image output it is more likely to run into this issue, as it can create lots of MBs in very short time.
 - Sequence Parser (terminal)  
   The parser operates on a buffer containing up to 2^17 codepoints (~0.5 MB).
-- Sequence Handler - Chunk Processing (addon / mainthread)  
-  Image data chunks are copied over and sent to the decoder worker as transferables with `postMessage`. To avoid a data congestion at the message port, allowed SIXEL data is hard limited by `sixelSizeLimit` (default 25 MB). The transport chunks are pooled, the pool cache may hold up to ~6 MB during active data transmission.
-- Image Decoder (addon / worker)  
-  The decoder works chunkwise allocating memory as needed. The allowed image size gets restricted by `pixelLimit` (default 16M pixels), the decoder holds 2 pixel buffers at maximum during decoding (RGBA, ~128 MB for 16M pixels).
-  After decoding the final pixel buffer is transferred back to the sequence handler.
-- Sequence Handler - Image Finalization (addon / mainthread)  
-  The pixel data gets written to a canvas of the same size (~64 MB for 16M pixels) and added to the storage. The pixel buffer is sent back to the worker to be used for the next image.
-- Image Storage (addon / mainthread)  
+- Sequence Handler - Chunk Decoding (addon)  
+  Image data chunks are processed immediately by the SIXEL decoder (streamlined). The decoder allocates memory for image
+  pixels as needed. The allowed image size is restricted by `pixelLimit` (default 16M pixels), the decoder holds 2 pixel buffers at maximum during decoding (RGBA, ~128 MB for 16M pixels).
+- Sequence Handler - Image Finalization (addon) 
+  After decoding the final pixel buffer is grabbed by the sequence handler and written to a canvas of the same size (~64 MB for 16M pixels) and added to the storage.
+- Image Storage (addon)  
   The image storage implements a FIFO cache, that will remove old images, if a new one arrives and `storageLimit` is hit (default 128 MB). The storage holds a canvas with the original image, and may additionally hold resized versions of images after a font rescaling. Both are accounted in `storageUsage` as a rough estimation of _pixels x 4 channels_.
 
 Following the steps above, a rough estimation of maximum memory usage by the addon can be calculated with these formulas (in bytes):
@@ -198,9 +198,9 @@ _How can I adjust the memory usage?_
 - Performance should be good enough for occasional SIXEL output from REPLs, up to downscaled movies
   from `mpv` with its SIXEL renderer (tested in the demo). For 3rd party xterm.js integrations this
   furthermore depends highly on the overall incoming data throughput.
-- Image processing has a bad latency, partially caused by the internal worker design and its message overhead.
-  Most of the latency though is inherited from xterm.js' incoming data route (PTY -> server process -> websocket -> xterm.js async parsing), where every step creates more waiting time. Since we cannot do much about that "long line",
-  keep that in mind when you try to run more demanding applications with realtime drawing and interactive response needs.
+- Image processing has a high latency. Most of the latency though is inherited from xterm.js' incoming data route
+  (PTY -> server process -> websocket -> xterm.js async parsing), where every step creates more waiting time.
+  Since we cannot do much about that "long line", keep that in mind when you try to run more demanding applications with realtime drawing and interactive response needs.
 
 
 ### Status
@@ -210,6 +210,7 @@ Sixel support and image handling in xterm.js is considered beta quality.
 
 ### Changelog
 
+- 0.2.1 important: worker got removed
 - 0.2.0 compat release for xterm.js 5.0.0
 - 0.1.3 bugfix: avoid striping
 - 0.1.2 bugfix: reset clear flag
