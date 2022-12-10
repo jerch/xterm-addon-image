@@ -26,7 +26,7 @@ The addon integrates tightly with the xterm.js base repo, esp. for tests and the
 To properly set up all needed resources see `bootstrap.sh` or run it directly with
 
 ```bash
-curl -s https://raw.githubusercontent.com/jerch/xterm-addon-image/master/bootstrap.sh | XTERMJS=5.0.0 bash
+curl -s https://raw.githubusercontent.com/jerch/xterm-addon-image/master/bootstrap.sh | XTERMJS=5.0.0 IMAGEADDON=master bash
 ```
 
 The addon sources and npm package definition reside under `addons/xterm-addon-image`.
