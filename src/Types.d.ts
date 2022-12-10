@@ -10,10 +10,9 @@ import { Attributes, BgFlags, Content, ExtFlags, UnderlineStyle } from 'common/b
 import type { AttributeData } from 'common/buffer/AttributeData';
 import type { IParams, IDcsHandler, IEscapeSequenceParser } from 'common/parser/Types';
 import type { IBufferLine, IExtendedAttrs, IInputHandler } from 'common/Types';
-import type { IDirtyRowService } from 'common/services/Services';
-import type { IColorManager, ITerminal } from 'browser/Types';
-import type { IRenderDimensions } from 'browser/renderer/Types';
-import type { ICoreBrowserService, IRenderService } from 'browser/services/Services';
+import type { ITerminal, ReadonlyColorSet } from 'browser/Types';
+import type { IRenderDimensions } from 'browser/renderer/shared/Types';
+import type { ICoreBrowserService, IRenderService, IThemeService } from 'browser/services/Services';
 
 export const enum Cell {
   CONTENT = 0,  // codepoint and wcwidth information (enum Content)
@@ -23,7 +22,7 @@ export const enum Cell {
 }
 
 // export some privates for local usage
-export { AttributeData, IParams, IDcsHandler, BgFlags, IRenderDimensions, IRenderService, IColorManager, Content, ExtFlags, Attributes, UnderlineStyle };
+export { AttributeData, IParams, IDcsHandler, BgFlags, IRenderDimensions, IRenderService, Content, ExtFlags, Attributes, UnderlineStyle, ReadonlyColorSet };
 
 /**
  * Plugin ctor options.
@@ -67,12 +66,16 @@ export interface IBufferLineExt extends IBufferLine {
 interface IInputHandlerExt extends IInputHandler {
   _parser: IEscapeSequenceParser;
   _curAttrData: AttributeData;
+  _dirtyRowTracker: {
+    markRangeDirty(y1: number, y2: number): void;
+    markAllDirty(): void;
+    markDirty(y: number): void;
+  };
   onRequestReset(handler: () => void): IDisposable;
 }
 
 export interface ICoreTerminalExt extends ITerminal {
-  _dirtyRowService: IDirtyRowService;
-  _colorManager: IColorManager;
+  _themeService: IThemeService;
   _inputHandler: IInputHandlerExt;
   _renderService: IRenderService;
   _coreBrowserService: ICoreBrowserService;

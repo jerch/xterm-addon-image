@@ -113,7 +113,7 @@ function generateAddonWorker(addonName) {
 
 const compiler = webpack([
   clientConfig,
-  generateAddonWorker('image')
+  // generateAddonWorker('image')
 ]);
 
 compiler.watch({
