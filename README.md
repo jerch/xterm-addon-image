@@ -17,7 +17,7 @@ npm install --save xterm-addon-image
 
 - 0.1.x - compatible to xterm.js 4.16.0 - 4.19.0
 - 0.2.0 - compatible to xterm.js 5.0.0
-- 0.2.1 - compatible to xterm.js 5.0.0
+- 0.3.0 - compatible to xterm.js 5.0.0
 
 
 ### Clone & Build
@@ -210,7 +210,7 @@ Sixel support and image handling in xterm.js is considered beta quality.
 
 ### Changelog
 
-- 0.2.1 important: worker got removed
+- 0.3.0 important change: worker removed from addon
 - 0.2.0 compat release for xterm.js 5.0.0
 - 0.1.3 bugfix: avoid striping
 - 0.1.2 bugfix: reset clear flag
