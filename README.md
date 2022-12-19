@@ -18,6 +18,7 @@ npm install --save xterm-addon-image
 - 0.1.x - compatible to xterm.js 4.16.0 - 4.19.0
 - 0.2.0 - compatible to xterm.js 5.0.0
 - 0.3.0 - compatible to xterm.js 5.0.0
+- 0.3.1 - compatible to xterm.js 5.1.0
 
 
 ### Clone & Build
@@ -26,7 +27,7 @@ The addon integrates tightly with the xterm.js base repo, esp. for tests and the
 To properly set up all needed resources see `bootstrap.sh` or run it directly with
 
 ```bash
-curl -s https://raw.githubusercontent.com/jerch/xterm-addon-image/master/bootstrap.sh | XTERMJS=5.0.0 IMAGEADDON=master bash
+curl -s https://raw.githubusercontent.com/jerch/xterm-addon-image/master/bootstrap.sh | XTERMJS=5.1.0 IMAGEADDON=master bash
 ```
 
 The addon sources and npm package definition reside under `addons/xterm-addon-image`.
@@ -210,6 +211,7 @@ Sixel support and image handling in xterm.js is considered beta quality.
 
 ### Changelog
 
+- 0.3.1 compat release for xterm.js 5.1.0
 - 0.3.0 important change: worker removed from addon
 - 0.2.0 compat release for xterm.js 5.0.0
 - 0.1.3 bugfix: avoid striping

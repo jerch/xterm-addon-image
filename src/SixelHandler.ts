@@ -4,7 +4,7 @@
  */
 
 import { ImageStorage } from './ImageStorage';
-import { IDcsHandler, IParams, IImageAddonOptions, ITerminalExt, AttributeData, IColorManager, IResetHandler } from './Types';
+import { IDcsHandler, IParams, IImageAddonOptions, ITerminalExt, AttributeData, IResetHandler, ReadonlyColorSet } from './Types';
 import { toRGBA8888, BIG_ENDIAN, PALETTE_ANSI_256, PALETTE_VT340_COLOR } from 'sixel/lib/Colors';
 import { RGBA8888 } from 'sixel/lib/Types';
 import { ImageRenderer } from './ImageRenderer';
@@ -57,7 +57,7 @@ export class SixelHandler implements IDcsHandler, IResetHandler {
     if (this._dec) {
       const fillColor = params.params[1] === 1 ? 0 : extractActiveBg(
         this._coreTerminal._core._inputHandler._curAttrData,
-        this._coreTerminal._core._colorManager.colors);
+        this._coreTerminal._core._themeService.colors);
       this._dec.init(fillColor, null, this._opts.sixelPaletteLimit);
     }
   }
@@ -115,7 +115,7 @@ export class SixelHandler implements IDcsHandler, IResetHandler {
 
 // get currently active background color from terminal
 // also respect INVERSE setting
-function extractActiveBg(attr: AttributeData, colors: IColorManager['colors']): RGBA8888 {
+function extractActiveBg(attr: AttributeData, colors: ReadonlyColorSet): RGBA8888 {
   let bg = 0;
   if (attr.isInverse()) {
     if (attr.isFgDefault()) {

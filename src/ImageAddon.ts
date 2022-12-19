@@ -271,8 +271,8 @@ export class ImageAddon implements ITerminalAddon {
       switch (params[1]) {
         // we only implement read and read_max here
         case GaAction.READ:
-          let width = this._renderer?.dimensions?.canvasWidth;
-          let height = this._renderer?.dimensions?.canvasHeight;
+          let width = this._renderer?.dimensions?.css.canvas.width;
+          let height = this._renderer?.dimensions?.css.canvas.height;
           if (!width || !height) {
             // for some reason we have no working image renderer
             // --> fallback to default cell size

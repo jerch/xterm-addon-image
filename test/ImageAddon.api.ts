@@ -83,12 +83,12 @@ describe.only('ImageAddon', () => {
     // terminal privates
     const accessors = [
       '_core',
-      '_core._dirtyRowService',
       '_core._renderService',
       '_core._inputHandler',
       '_core._inputHandler._parser',
       '_core._inputHandler._curAttrData',
-      '_core._colorManager',
+      '_core._inputHandler._dirtyRowTracker',
+      '_core._themeService.colors',
       '_core._coreBrowserService'
     ];
     for (const prop of accessors) {
@@ -247,10 +247,10 @@ describe.only('ImageAddon', () => {
 async function getDimensions(): Promise<IDimensions> {
   const dimensions: any = await page.evaluate(`term._core._renderService.dimensions`);
   return {
-    cellWidth: Math.round(dimensions.actualCellWidth),
-    cellHeight: Math.round(dimensions.actualCellHeight),
-    width: Math.round(dimensions.canvasWidth),
-    height: Math.round(dimensions.canvasHeight)
+    cellWidth: Math.round(dimensions.css.cell.width),
+    cellHeight: Math.round(dimensions.css.cell.height),
+    width: Math.round(dimensions.css.canvas.width),
+    height: Math.round(dimensions.css.canvas.height)
   };
 }
 

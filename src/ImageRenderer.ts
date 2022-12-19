@@ -125,8 +125,8 @@ export class ImageRenderer implements IDisposable {
    */
   public get cellSize(): ICellSize {
     return {
-      width: this.dimensions?.actualCellWidth || -1,
-      height: this.dimensions?.actualCellHeight || -1
+      width: this.dimensions?.css.cell.width || -1,
+      height: this.dimensions?.css.cell.height || -1
     };
   }
 
@@ -136,9 +136,9 @@ export class ImageRenderer implements IDisposable {
   public clearLines(start: number, end: number): void {
     this._ctx?.clearRect(
       0,
-      start * (this.dimensions?.actualCellHeight || 0),
-      this.dimensions?.canvasWidth || 0,
-      (++end - start) * (this.dimensions?.actualCellHeight || 0)
+      start * (this.dimensions?.css.cell.height || 0),
+      this.dimensions?.css.canvas.width || 0,
+      (++end - start) * (this.dimensions?.css.cell.height || 0)
     );
   }
 
@@ -253,9 +253,9 @@ export class ImageRenderer implements IDisposable {
     if (!this.canvas) {
       return;
     }
-    if (this.canvas.width !== this.dimensions?.canvasWidth || this.canvas.height !== this.dimensions.canvasHeight) {
-      this.canvas.width = this.dimensions?.canvasWidth || 0;
-      this.canvas.height = this.dimensions?.canvasHeight || 0;
+    if (this.canvas.width !== this.dimensions!.css.canvas.width || this.canvas.height !== this.dimensions!.css.canvas.height) {
+      this.canvas.width = this.dimensions!.css.canvas.width || 0;
+      this.canvas.height = this.dimensions!.css.canvas.height || 0;
     }
   }
 
@@ -305,7 +305,7 @@ export class ImageRenderer implements IDisposable {
   }
 
   private _insertLayerToDom(): void {
-    this.canvas = ImageRenderer.createCanvas(this._terminal._core._coreBrowserService.window, this.dimensions?.canvasWidth || 0, this.dimensions?.canvasHeight || 0);
+    this.canvas = ImageRenderer.createCanvas(this._terminal._core._coreBrowserService.window, this.dimensions?.css.canvas.width || 0, this.dimensions?.css.canvas.height || 0);
     this.canvas.classList.add('xterm-image-layer');
     this._terminal._core.screenElement?.appendChild(this.canvas);
     this._ctx = this.canvas.getContext('2d', { alpha: true, desynchronized: true });

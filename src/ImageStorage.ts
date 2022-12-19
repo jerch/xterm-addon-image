@@ -234,13 +234,12 @@ export class ImageStorage implements IDisposable {
     let tileCount = 0;
 
     if (!this._opts.sixelScrolling) {
-      this._terminal._core._dirtyRowService.markAllDirty();
       buffer.x = 0;
       buffer.y = 0;
       offset = 0;
     }
 
-    // TODO: how to go with origin mode / scroll margins here?
+    this._terminal._core._inputHandler._dirtyRowTracker.markDirty(buffer.y);
     for (let row = 0; row < rows; ++row) {
       const line = buffer.lines.get(buffer.y + buffer.ybase);
       for (let col = 0; col < cols; ++col) {
@@ -255,6 +254,7 @@ export class ImageStorage implements IDisposable {
       }
       buffer.x = offset;
     }
+    this._terminal._core._inputHandler._dirtyRowTracker.markDirty(buffer.y);
 
     // cursor positioning modes
     if (this._opts.sixelScrolling) {
