@@ -142,8 +142,9 @@ class HeaderParser {
           }
           break;
         case 58: // :
-          if (this.state === HeaderState.VALUE)
+          if (this.state === HeaderState.VALUE) {
             if (!this._setValue()) return this._abort();
+          }
           this.state = HeaderState.END;
           return i + 1;
         default:
@@ -237,7 +238,7 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
         // TODO: faster alternative to atob + Image
         const bytes = Uint8Array.from(atob(this._data.join('')), c => c.charCodeAt(0));
         this._data.length = 0;
-        const blob = new Blob([bytes], {type: 'image/png'});
+        const blob = new Blob([bytes], { type: 'image/png' });
         const url = URL.createObjectURL(blob);
         const img = new Image();
         img.onload = () => {
@@ -262,8 +263,8 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
   private _getSize(w: number, h: number): [number, number] {
     const cw = this._renderer.dimensions?.css.cell.width || CELL_SIZE_DEFAULT.width;
     const ch = this._renderer.dimensions?.css.cell.height || CELL_SIZE_DEFAULT.height;
-    let width = this._renderer.dimensions?.css.canvas.width || cw * this._coreTerminal.cols;
-    let height = this._renderer.dimensions?.css.canvas.height || ch * this._coreTerminal.rows;
+    const width = this._renderer.dimensions?.css.canvas.width || cw * this._coreTerminal.cols;
+    const height = this._renderer.dimensions?.css.canvas.height || ch * this._coreTerminal.rows;
 
     const rw = this._dim(this._header.width!, width, cw);
     const rh = this._dim(this._header.height!, height, ch);
