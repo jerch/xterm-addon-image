@@ -6,10 +6,12 @@
 import { IOscHandler, IResetHandler, ITerminalExt } from './Types';
 import { ImageRenderer } from './ImageRenderer';
 import { ImageStorage, CELL_SIZE_DEFAULT } from './ImageStorage';
+import { Base64 } from './base64';
 
 
 const FILE_MARKER = [70, 105, 108, 101];
 const MAX_FIELDCHARS = 1024;
+const MAX_DATA = 4194304;
 
 const enum HeaderState {
   START = 0,
@@ -64,7 +66,7 @@ function toInt(data: Uint32Array): number {
   let v = 0;
   for (let i = 0; i < data.length; ++i) {
     if (data[i] < 48 || data[i] > 57) {
-      throw new Error('illegal char for digit');
+      throw new Error('illegal char');
     }
     v = v * 10 + data[i] - 48;
   }
@@ -82,7 +84,7 @@ function toSize(data: Uint32Array): string {
 
 // name is base64 encoded utf-8
 function toName(data: Uint32Array): string {
-  const bs = atob(toStr(data));
+  const bs = atob(toStr(data));  // TODO: needs nodejs workaround
   const b = new Uint8Array(bs.length);
   for (let i = 0; i < b.length; ++i) {
     b[i] = bs.charCodeAt(i);
@@ -102,79 +104,84 @@ const DECODERS: {[key: string]: (v: Uint32Array) => any} = {
 class HeaderParser {
   public state: HeaderState = HeaderState.START;
   private _buffer = new Uint32Array(MAX_FIELDCHARS);
-  private _bufferPos = 0;
-  private _curKey = '';
+  private _position = 0;
+  private _key = '';
   public fields: {[key: string]: any} = {};
 
   public reset(): void {
     this._buffer.fill(0);
     this.state = HeaderState.START;
-    this._bufferPos = 0;
+    this._position = 0;
     this.fields = {};
-    this._curKey = '';
+    this._key = '';
   }
 
   public parse(data: Uint32Array, start: number, end: number): number {
-    if (this.state === HeaderState.ABORT || this.state === HeaderState.END) return -1;
-    if (this.state === HeaderState.START && this._bufferPos > 6) return -1;
+    let state = this.state;
+    let pos = this._position;
+    const buffer = this._buffer;
+    if (state === HeaderState.ABORT || state === HeaderState.END) return -1;
+    if (state === HeaderState.START && pos > 6) return -1;
     for (let i = start; i < end; ++i) {
       const c = data[i];
       switch (c) {
         case 59: // ;
-          if (!this._setValue()) return this._abort();
-          this.state = HeaderState.KEY;
-          this._bufferPos = 0;
+          if (!this._storeValue(pos)) return this._a();
+          state = HeaderState.KEY;
+          pos = 0;
           break;
         case 61: // =
-          if (this.state === HeaderState.START) {
+          if (state === HeaderState.START) {
             for (let k = 0; k < FILE_MARKER.length; ++k) {
-              if (this._buffer[k] !== FILE_MARKER[k]) return this._abort();
+              if (buffer[k] !== FILE_MARKER[k]) return this._a();
             }
-            this.state = HeaderState.KEY;
-            this._bufferPos = 0;
-          } else if (this.state === HeaderState.KEY) {
-            if (!this._setKey()) return this._abort();
-            this.state = HeaderState.VALUE;
-            this._bufferPos = 0;
-          } else if (this.state === HeaderState.VALUE) {
-            if (this._bufferPos >= MAX_FIELDCHARS) return this._abort();
-            this._buffer[this._bufferPos++] = c;
+            state = HeaderState.KEY;
+            pos = 0;
+          } else if (state === HeaderState.KEY) {
+            if (!this._storeKey(pos)) return this._a();
+            state = HeaderState.VALUE;
+            pos = 0;
+          } else if (state === HeaderState.VALUE) {
+            if (pos >= MAX_FIELDCHARS) return this._a();
+            buffer[pos++] = c;
           }
           break;
         case 58: // :
-          if (this.state === HeaderState.VALUE) {
-            if (!this._setValue()) return this._abort();
+          if (state === HeaderState.VALUE) {
+            if (!this._storeValue(pos)) return this._a();
           }
           this.state = HeaderState.END;
           return i + 1;
         default:
-          if (this._bufferPos >= MAX_FIELDCHARS) return this._abort();
-          this._buffer[this._bufferPos++] = c;
+          if (pos >= MAX_FIELDCHARS) return this._a();
+          buffer[pos++] = c;
       }
     }
+    this.state = state;
+    this._position = pos;
     return -2;
   }
 
-  private _abort(): number {
+  private _a(): number {
     this.state = HeaderState.ABORT;
     return -1;
   }
 
-  private _setKey(): boolean {
-    const key = toStr(this._buffer.subarray(0, this._bufferPos));
-    if (key) {
-      this._curKey = key;
-      this.fields[key] = null;
+  private _storeKey(pos: number): boolean {
+    const k = toStr(this._buffer.subarray(0, pos));
+    if (k) {
+      this._key = k;
+      this.fields[k] = null;
       return true;
     }
     return false;
   }
 
-  private _setValue(): boolean {
-    if (this._curKey) {
+  private _storeValue(pos: number): boolean {
+    if (this._key) {
       try {
-        const v = this._buffer.slice(0, this._bufferPos);
-        this.fields[this._curKey] = DECODERS[this._curKey] ? DECODERS[this._curKey](v) : v;
+        const v = this._buffer.slice(0, pos);
+        this.fields[this._key] = DECODERS[this._key] ? DECODERS[this._key](v) : v;
       } catch (e) {
         return false;
       }
@@ -189,7 +196,8 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
   private _aborted = false;
   private _hp = new HeaderParser();
   private _header: IHeaderFields = DEFAULT_HEADER;
-  private _data: string[] = [];
+  private _imgData = new Uint8Array(0);
+  private _pos = 0;
 
   constructor(
     private readonly _renderer: ImageRenderer,
@@ -203,14 +211,16 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
     this._aborted = false;
     this._hp.reset();
     this._header = DEFAULT_HEADER;
-    this._data.length = 0;
+    this._pos = 0;
   }
 
   public put(data: Uint32Array, start: number, end: number): void {
     if (this._aborted) return;
 
+    // TODO: abort on oversize in px & MB
     if (this._hp.state === HeaderState.END) {
-      this._data.push(toStr(data.subarray(start, end)));
+      this._imgData.set(data.subarray(start, end), this._pos);
+      this._pos += end - start;
     } else {
       const result = this._hp.parse(data, start, end);
       if (result === -1) {
@@ -224,40 +234,41 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
           this._aborted = true;
           return;
         }
-        this._data.length = 0;
-        this._data.push(toStr(data.subarray(result, end)));
+        const b64Size = Base64.encodeSize(this._header.size);
+        if (this._imgData.length < b64Size) {
+          this._imgData = new Uint8Array(b64Size);
+        }
+        this._imgData.set(data.subarray(result, end));
+        this._pos = end - result;
       }
     }
   }
 
   public end(success: boolean): boolean | Promise<boolean> {
-    if (this._aborted || !success || !this._data.length) return true;
+    if (this._aborted || !success || !this._pos) return true;
 
-    return new Promise(resolve => {
-      try {
-        // TODO: faster alternative to atob + Image
-        const bytes = Uint8Array.from(atob(this._data.join('')), c => c.charCodeAt(0));
-        this._data.length = 0;
-        const blob = new Blob([bytes], { type: 'image/png' });
-        const url = URL.createObjectURL(blob);
-        const img = new Image();
-        img.onload = () => {
-          URL.revokeObjectURL(url);
-          let [w, h] = this._getSize(img.width, img.height);
-          w = Math.floor(w);
-          h = Math.floor(h);
-          const canvas = ImageRenderer.createCanvas(
-            this._coreTerminal._core._coreBrowserService.window, w, h);
-          canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
-          this._storage.addImage(canvas);
-          this._coreTerminal.refresh(0, this._coreTerminal.rows);
-          resolve(true);
-        };
-        img.src = url;
-      } catch (e) {
-        resolve(true);
-      }
-    });
+    // inline b64 decoding
+    const bytes = this._imgData.subarray(0, this._header.size);
+    // FIXME: base64 decode + blob creation causes a big stall on mainthread: ~70ms for 24MB PNG
+    const size = Base64.decode(this._imgData, bytes);
+    if (size < this._header.size) return true;
+    const blob = new Blob([bytes.subarray(0, size)], { type: 'image/jpeg' }); // FIXME: pull mime type from bytes
+
+    if (this._imgData.length > MAX_DATA) {
+      this._imgData = new Uint8Array(0);
+    }
+
+    return createImageBitmapShim(this._coreTerminal._core._coreBrowserService.window, blob)
+      .then((obj: ImageBitmap | HTMLImageElement) => {
+        if (!obj || !obj.width || !obj.height) return true;
+        const [w, h] = this._getSize(obj.width, obj.height).map(Math.floor);
+        const canvas = ImageRenderer.createCanvas(
+          this._coreTerminal._core._coreBrowserService.window, w, h);
+        canvas.getContext('2d')?.drawImage(obj, 0, 0, w, h);
+        this._storage.addImage(canvas);
+        return true;
+      })
+      .catch(e => true);
   }
 
   private _getSize(w: number, h: number): [number, number] {
@@ -288,3 +299,21 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
   }
 }
 
+/** safari helper to mimick createImageBitmap */
+function createImageBitmapShim(window: Window, blob: Blob): Promise<ImageBitmap | HTMLImageElement> {
+  if (typeof window.createImageBitmap === 'undefined') {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    return new Promise<HTMLImageElement>(resolve => {
+      img.addEventListener('load', () => {
+        URL.revokeObjectURL(url);
+        resolve(img);
+      });
+      // sanity measure to avoid terminal blocking from dangling promise
+      // happens from corrupt data (onload never gets fired)
+      setTimeout(() => resolve(img), 1000);
+      img.src = url;
+    });
+  }
+  return window.createImageBitmap(blob);
+}
