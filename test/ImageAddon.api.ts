@@ -109,7 +109,7 @@ describe.only('ImageAddon', () => {
     it('empty settings should load defaults', async () => {
       const DEFAULT_OPTIONS: IImageAddonOptions = {
         enableSizeReports: true,
-        pixelLimit: 16777216,
+        pixelLimit: 25000000, // 16777216,
         sixelSupport: true,
         sixelScrolling: true,
         sixelPaletteLimit: 512,  // set to 512 to get example image working

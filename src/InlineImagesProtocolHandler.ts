@@ -6,7 +6,7 @@
 import { IOscHandler, IResetHandler, ITerminalExt } from './Types';
 import { ImageRenderer } from './ImageRenderer';
 import { ImageStorage, CELL_SIZE_DEFAULT } from './ImageStorage';
-import { Base64 } from './base64';
+import { ChunkInplaceDecoder } from './base64';
 
 
 const FILE_MARKER = [70, 105, 108, 101];
@@ -196,8 +196,7 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
   private _aborted = false;
   private _hp = new HeaderParser();
   private _header: IHeaderFields = DEFAULT_HEADER;
-  private _imgData = new Uint8Array(0);
-  private _pos = 0;
+  private _dec = new ChunkInplaceDecoder(MAX_DATA);
 
   constructor(
     private readonly _renderer: ImageRenderer,
@@ -211,7 +210,7 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
     this._aborted = false;
     this._hp.reset();
     this._header = DEFAULT_HEADER;
-    this._pos = 0;
+    this._dec.release();
   }
 
   public put(data: Uint32Array, start: number, end: number): void {
@@ -219,8 +218,10 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
 
     // TODO: abort on oversize in px & MB
     if (this._hp.state === HeaderState.END) {
-      this._imgData.set(data.subarray(start, end), this._pos);
-      this._pos += end - start;
+      if (this._dec.put(data, start, end)) {
+        console.warn('IIP: base64 decode error');
+        this._aborted = true;
+      }
     } else {
       const result = this._hp.parse(data, start, end);
       if (result === -1) {
@@ -234,29 +235,22 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
           this._aborted = true;
           return;
         }
-        const b64Size = Base64.encodeSize(this._header.size);
-        if (this._imgData.length < b64Size) {
-          this._imgData = new Uint8Array(b64Size);
+        this._dec.init(this._header.size);
+        if (this._dec.put(data, result, end)) {
+          console.warn('IIP: base64 decode error');
+          this._aborted = true;
         }
-        this._imgData.set(data.subarray(result, end));
-        this._pos = end - result;
       }
     }
   }
 
   public end(success: boolean): boolean | Promise<boolean> {
-    if (this._aborted || !success || !this._pos) return true;
+    if (this._aborted || !success) return true;
 
-    // inline b64 decoding
-    const bytes = this._imgData.subarray(0, this._header.size);
-    // FIXME: base64 decode + blob creation causes a big stall on mainthread: ~70ms for 24MB PNG
-    const size = Base64.decode(this._imgData, bytes);
-    if (size < this._header.size) return true;
-    const blob = new Blob([bytes.subarray(0, size)], { type: 'image/jpeg' }); // FIXME: pull mime type from bytes
-
-    if (this._imgData.length > MAX_DATA) {
-      this._imgData = new Uint8Array(0);
-    }
+    // finalize base64 decoding, exit if base64 decoder yields less bytes than expected
+    if (this._dec.end()) return true;
+    const blob = new Blob([this._dec.data8], { type: 'image/jpeg' });
+    this._dec.release();
 
     return createImageBitmapShim(this._coreTerminal._core._coreBrowserService.window, blob)
       .then((obj: ImageBitmap | HTMLImageElement) => {
@@ -266,6 +260,7 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
           this._coreTerminal._core._coreBrowserService.window, w, h);
         canvas.getContext('2d')?.drawImage(obj, 0, 0, w, h);
         this._storage.addImage(canvas);
+        if (obj instanceof ImageBitmap) obj.close();
         return true;
       })
       .catch(e => true);

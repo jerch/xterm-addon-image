@@ -1,188 +1,132 @@
 /**
- * FIXME: needs sveral changes
- * - make streamlined
+ * FIXME: needs several changes
  * - eval wasm impl
  */
 
-type UintTypedArray = Uint8Array | Uint16Array | Uint32Array;
-
-// base64 maps
-const BASE64_CHARMAP = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-const ENC_MAP = new Uint8Array(BASE64_CHARMAP.split('').map(el => el.charCodeAt(0)));
-const PAD = '='.charCodeAt(0);
-
-// slow decoder map
-const DEC_MAP = new Uint8Array(256);
-DEC_MAP.fill(255);
-for (let i = 0; i < ENC_MAP.length; ++i) {
-  DEC_MAP[ENC_MAP[i]] = i;
-}
+// base64 map
+const MAP = new Uint8Array(
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    .split('')
+    .map(el => el.charCodeAt(0))
+);
+const PAD = 61; // 0x3D =
 
 function initDecodeMap(map: Uint32Array, shift: number): void {
   map.fill(3 << 24);
-  for (let i = 0; i < ENC_MAP.length; ++i) {
-    map[ENC_MAP[i]] = i << shift;
+  for (let i = 0; i < MAP.length; ++i) {
+    map[MAP[i]] = i << shift;
   }
 }
 
-// fast decoder maps
-const DEC0 = new Uint32Array(256);
-const DEC1 = new Uint32Array(256);
-const DEC2 = new Uint32Array(256);
-const DEC3 = new Uint32Array(256);
-initDecodeMap(DEC0, 18);
-initDecodeMap(DEC1, 12);
-initDecodeMap(DEC2, 6);
-initDecodeMap(DEC3, 0);
+// decoder maps
+const D0 = new Uint32Array(256);
+const D1 = new Uint32Array(256);
+const D2 = new Uint32Array(256);
+const D3 = new Uint32Array(256);
+initDecodeMap(D0, 18);
+initDecodeMap(D1, 12);
+initDecodeMap(D2, 6);
+initDecodeMap(D3, 0);
 
+// LE only!
+export class ChunkInplaceDecoder {
+  public wp = 0;          // write position of input data
+  public sp = 0;          // read position of input data
+  public dp = 0;          // write position of decode
+  public eSize = 0;       // encoded size == max data container size
+  public bSize = 0;       // byte size
+  public ended = false;   // whether decoder is finished
 
-interface IPositionUpdate {
-  sourcePos: number;
-  targetPos: number;
-}
+  private _d!: Uint8Array;
+  private _d32!: Uint32Array;
 
+  constructor(public keepSize: number) {}
 
-export class Base64 {
-  /**
-   * Calculate needed encode space.
-   */
-  public static encodeSize(length: number): number {
-    return Math.ceil(length / 3) * 4;
+  public get data8(): Uint8Array {
+    return this._d.subarray(0, this.dp);
   }
 
-  /**
-   * Calculate needed decode space.
-   * Returns an upper estimation if the encoded data contains padding
-   * or invalid bytes (exact number if cleaned up).
-   */
-  public static decodeSize(length: number): number {
-    return Math.ceil(length / 4) * 3 - (Math.ceil(length / 4) * 4 - length);
-  }
-
-  /**
-   * Encode base64.
-   * Returns number of encoded bytes written to `target`.
-   */
-  public static encode(data: UintTypedArray, target: UintTypedArray, length: number = data.length, pad: boolean = true): number {
-    if (!length) {
-      return 0;
-    }
-    if (target.length < Base64.encodeSize(length)) {
-      throw new Error('not enough room to encode base64 data');
-    }
-    const padding = length % 3;
-    if (padding) {
-      length -= padding;
-    }
-    let j = 0;
-    for (let i = 0; i < length; i += 3) {
-      // load 3x 8 bit values
-      const accu = data[i] << 16 | data[i + 1] << 8 | data[i + 2];
-
-      // write 4x 6 bit values
-      target[j] = ENC_MAP[accu >> 18];
-      target[j + 1] = ENC_MAP[(accu >> 12) & 0x3F];
-      target[j + 2] = ENC_MAP[(accu >> 6) & 0x3F];
-      target[j + 3] = ENC_MAP[accu & 0x3F];
-      j += 4;
-    }
-    if (padding) {
-      if (padding === 2) {
-        let accu = data[length] << 8 | data[length + 1];
-        accu <<= 2;
-        target[j++] = ENC_MAP[accu >> 12];
-        target[j++] = ENC_MAP[(accu >> 6) & 0x3F];
-        target[j++] = ENC_MAP[accu & 0x3F];
-        if (pad) {
-          target[j++] = PAD;
-        }
-      } else {
-        let accu = data[length];
-        accu <<= 4;
-        target[j++] = ENC_MAP[accu >> 6];
-        target[j++] = ENC_MAP[accu & 0x3F];
-        if (pad) {
-          target[j++] = PAD;
-          target[j++] = PAD;
-        }
-      }
-    }
-    return j;
-  }
-
-  // slow bytewise decoder, handles invalid and final chunks
-  public static decodeChunk(source: UintTypedArray, target: UintTypedArray, endPos: number, p: IPositionUpdate): void {
-    let count = 0;
-    let d = 0;
-    let accu = 0;
-    while (p.sourcePos < endPos) {
-      if ((d = DEC_MAP[source[p.sourcePos++]]) !== 0xFF) {
-        count++;
-        accu <<= 6;
-        accu |= d;
-        // save fixed chunk, return fixed positions to fast decoder
-        if (!(count & 3)) {
-          target[p.targetPos] = accu >> 16;
-          target[p.targetPos + 1] = (accu >> 8) & 0xFF;
-          target[p.targetPos + 2] = accu & 0xFF;
-          p.targetPos += 3;
-          return;
-        }
-      } else {
-        // TODO: error rules based on base64 type
-      }
-    }
-    if (!count) return;
-
-    // handle final chunk
-    switch (count & 3) {
-      case 1:
-        return;
-      case 2:
-        target[p.targetPos++] = accu >> 4;
-        return;
-      case 3:
-        accu >>= 2;
-        target[p.targetPos++] = accu >> 8;
-        target[p.targetPos++] = accu & 0xFF;
-        return;
+  public release(): void {
+    if (this._d && this._d.length > this.keepSize) {
+      this.init(0);
     }
   }
 
-  /**
-   * Decode base64.
-   * Returns number of decoded bytes written to `target`.
-   */
-  public static decode(source: UintTypedArray, target: UintTypedArray, length: number = source.length): number {
-    if (!length) {
-      return 0;
+  public init(size: number): void {
+    this.bSize = size;
+    size = Math.ceil(size / 3) * 4;
+    this.eSize = size;
+    if (!this._d || size > this._d.length) {
+      this._d = new Uint8Array(size);
+      this._d32 = new Uint32Array(this._d.buffer, 0, Math.floor(size / 4));
     }
-    let endPos = length;
-    while (DEC_MAP[source[endPos - 1]] === 0xFF && endPos--) {}
-    let accu = 0;
-    const fourStop = endPos - 4;
-    const p = { sourcePos: 0, targetPos: 0 };
+    this.wp = 0;
+    this.sp = 0;
+    this.dp = 0;
+    this.ended = false;
+  }
 
-    // fast loop on four bytes
-    do {
-      accu = DEC0[source[p.sourcePos]]
-        | DEC1[source[p.sourcePos + 1]]
-        | DEC2[source[p.sourcePos + 2]]
-        | DEC3[source[p.sourcePos + 3]];
-      if (accu & 0xFF000000) {
-        // handle invalid chunk in slow decoder and fix positions
-        Base64.decodeChunk(source, target, endPos, p);
-      } else {
-        target[p.targetPos] = accu >> 16;
-        target[p.targetPos + 1] = (accu >> 8) & 0xFF;
-        target[p.targetPos + 2] = accu & 0xFF;
-        p.targetPos += 3;
-        p.sourcePos += 4;
-      }
-    } while (p.sourcePos < fourStop);
+  public put(data: Uint8Array | Uint16Array | Uint32Array, start: number, end: number): boolean {
+    if (end - start + this.wp > this.eSize) return true;
 
-    // handle last chunk in slow decoder
-    Base64.decodeChunk(source, target, endPos, p);
-    return p.targetPos;
+    // copy data over
+    this._d.set(data.subarray(start, end), this.wp);
+    this.wp += end - start;
+
+    // offsets for next full uint32 sequence except last one
+    const nsp = (this.wp - 1) & ~3; // FIXME: might be negative!!
+    const s = this._d32.subarray(this.sp >> 2, nsp >> 2);
+    const d = this._d.subarray(this.dp);
+    let sp = 0;
+    let dp = 0;
+    while (sp < s.length) {
+      const v = s[sp++];
+      const accu = D0[v & 255] | D1[(v >> 8) & 255] | D2[(v >> 16) & 255] | D3[v >> 24];
+      if (accu >> 24) return true;
+      d[dp] = accu >> 16;
+      d[dp+1] = accu >> 8;
+      d[dp+2] = accu;
+      dp += 3;
+    }
+    this.sp = nsp;
+    this.dp += dp;
+    return false;
+  }
+
+  private _fin(v0: number, v1: number, v2: number, v3: number): boolean {
+    const d = this._d;
+    if (v2 === PAD) {
+      const accu = D0[v0] | D1[v1];
+      if (accu >> 24) return true;
+      d[this.dp++] = accu >> 16;
+      return false;
+    }
+    if (v3 === PAD) {
+      const accu = D0[v0] | D1[v1] | D2[v2];
+      if (accu >> 24) return true;
+      d[this.dp++] = accu >> 16;
+      d[this.dp++] = (accu >> 8) & 0xFF;
+      return false;
+    }
+    const accu = D0[v0] | D1[v1] | D2[v2] | D3[v3];
+    if (accu >> 24) return true;
+    d[this.dp++] = accu >> 16;
+    d[this.dp++] = (accu >> 8) & 0xFF;
+    d[this.dp++] = accu & 0xFF;
+    return false;
+  }
+
+  public end(): boolean | number {
+    if (!this.ended) {
+      this.ended = true;
+      const rem = this.wp - this.sp;
+      const d = this._d;
+      const p = this.sp;
+      return !rem
+        ? true
+        : rem === 1 || rem > 4
+          ? true : this._fin(d[p], d[p + 1], rem > 2 ? d[p + 2] : PAD, rem === 4 ? d[p + 3] : PAD);
+    }
+    return this.dp !== this.bSize;
   }
 }
