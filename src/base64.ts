@@ -1,8 +1,3 @@
-/**
- * FIXME: needs several changes
- * - eval wasm impl
- */
-
 // base64 map
 const MAP = new Uint8Array(
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
@@ -28,14 +23,22 @@ initDecodeMap(D1, 12);
 initDecodeMap(D2, 6);
 initDecodeMap(D3, 0);
 
-// LE only!
+/**
+ * base64 streamline inplace decoder.
+ *
+ * Features / assumptions:
+ * - optimized uint32 read (only LE support!)
+ * - errors out on any non base64 chars (no support for NL formatted base64)
+ * - decodes in 2^18 byte chunks for better perf
+ * - inplace overwrite to save memory
+ * - supports a keepSize for lazy memory release
+ */
 export class ChunkInplaceDecoder {
   public wp = 0;          // write position of input data
   public sp = 0;          // read position of input data
   public dp = 0;          // write position of decode
   public eSize = 0;       // encoded size == max data container size
   public bSize = 0;       // byte size
-  public ended = false;   // whether decoder is finished
 
   private _d!: Uint8Array;
   private _d32!: Uint32Array;
@@ -50,6 +53,9 @@ export class ChunkInplaceDecoder {
     if (this._d && this._d.length > this.keepSize) {
       this.init(0);
     }
+    this.wp = 0;
+    this.sp = 0;
+    this.dp = 0;
   }
 
   public init(size: number): void {
@@ -63,18 +69,21 @@ export class ChunkInplaceDecoder {
     this.wp = 0;
     this.sp = 0;
     this.dp = 0;
-    this.ended = false;
   }
 
   public put(data: Uint8Array | Uint16Array | Uint32Array, start: number, end: number): boolean {
     if (end - start + this.wp > this.eSize) return true;
-
-    // copy data over
+    // NOTE: the uint32 to uint8 reduction is quite costly (~30% of decoder runtime)
     this._d.set(data.subarray(start, end), this.wp);
     this.wp += end - start;
+    // aggregate _dec calls into 2^18 bytes
+    return this.wp - this.sp > 262144 ? this._dec() : false;
+  }
 
-    // offsets for next full uint32 sequence except last one
-    const nsp = (this.wp - 1) & ~3; // FIXME: might be negative!!
+  // hot path to run as tight as possible
+  // TODO: replace by wasm logic
+  private _dec(): boolean {
+    const nsp = (this.wp - 1) & ~3;
     const s = this._d32.subarray(this.sp >> 2, nsp >> 2);
     const d = this._d.subarray(this.dp);
     let sp = 0;
@@ -99,34 +108,39 @@ export class ChunkInplaceDecoder {
       const accu = D0[v0] | D1[v1];
       if (accu >> 24) return true;
       d[this.dp++] = accu >> 16;
-      return false;
+      return this.dp !== this.bSize;
     }
     if (v3 === PAD) {
       const accu = D0[v0] | D1[v1] | D2[v2];
       if (accu >> 24) return true;
       d[this.dp++] = accu >> 16;
       d[this.dp++] = (accu >> 8) & 0xFF;
-      return false;
+      return this.dp !== this.bSize;
     }
     const accu = D0[v0] | D1[v1] | D2[v2] | D3[v3];
     if (accu >> 24) return true;
     d[this.dp++] = accu >> 16;
     d[this.dp++] = (accu >> 8) & 0xFF;
     d[this.dp++] = accu & 0xFF;
-    return false;
+    return this.dp !== this.bSize;
   }
 
-  public end(): boolean | number {
-    if (!this.ended) {
-      this.ended = true;
-      const rem = this.wp - this.sp;
-      const d = this._d;
-      const p = this.sp;
-      return !rem
-        ? true
-        : rem === 1 || rem > 4
-          ? true : this._fin(d[p], d[p + 1], rem > 2 ? d[p + 2] : PAD, rem === 4 ? d[p + 3] : PAD);
+  public end(): boolean {
+    let rem = this.wp - this.sp;
+    if (rem > 4) {
+      if (this._dec()) return true;
+      rem = this.wp - this.sp;
     }
-    return this.dp !== this.bSize;
+    const d = this._d;
+    const p = this.sp;
+    return !rem
+      ? true
+      : rem === 1
+        ? true
+        : this._fin(
+          d[p],
+          d[p + 1],
+          rem > 2 ? d[p + 2] : PAD,
+          rem === 4 ? d[p + 3] : PAD);
   }
 }
