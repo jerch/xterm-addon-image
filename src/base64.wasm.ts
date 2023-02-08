@@ -128,7 +128,7 @@ const EMPTY = new Uint8Array(0);
  * - inplace overwrite to save memory
  * - supports a keepSize for lazy memory release
  */
-export class ChunkInplaceDecoder {
+export class Base64Decoder {
   private _d!: Uint8Array;
   private _m32!: Uint32Array;
   private _inst!: IWasmInstance<DecodeDefinition>;
@@ -142,7 +142,7 @@ export class ChunkInplaceDecoder {
 
   public release(): void {
     if (!this._inst) return;
-    if (this._d.length > this.keepSize) {
+    if (this._mem.buffer.byteLength > this.keepSize) {
       this._inst = this._m32 = this._d = this._mem = null!;
     } else {
       this._m32[P32.STATE_WP] = 0;
@@ -174,7 +174,7 @@ export class ChunkInplaceDecoder {
     this._m32 = m!;
   }
 
-  public put(data: Uint32Array, start: number, end: number): number {
+  public put(data: Uint8Array | Uint16Array | Uint32Array, start: number, end: number): number {
     if (!this._inst) return 1;
     const m = this._m32;
     if (end - start + m[P32.STATE_WP] > m[P32.STATE_ESIZE]) return 1;

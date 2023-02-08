@@ -6,7 +6,7 @@
 import { IOscHandler, IResetHandler, ITerminalExt } from './Types';
 import { ImageRenderer } from './ImageRenderer';
 import { ImageStorage, CELL_SIZE_DEFAULT } from './ImageStorage';
-import { ChunkInplaceDecoder } from './base64.wasm';
+import { Base64Decoder } from './base64.wasm';
 
 
 const FILE_MARKER = [70, 105, 108, 101];
@@ -248,7 +248,7 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
   private _aborted = false;
   private _hp = new HeaderParser();
   private _header: IHeaderFields = DEFAULT_HEADER;
-  private _dec = new ChunkInplaceDecoder(MAX_DATA);
+  private _dec = new Base64Decoder(MAX_DATA);
   private _mime: ImageType = '';
   private _width = 0;
   private _height = 0;
