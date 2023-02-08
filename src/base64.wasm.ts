@@ -12,13 +12,13 @@ const enum P32 {
   D1 = 512,
   D2 = 768,
   D3 = 1024,
-  State = 1280,
-  StateWp = 1280,
-  StateSp = 1281,
-  StateDp = 1282,
-  StateEsize = 1283,
-  StateBsize = 1284,
-  StateData = 1285
+  STATE = 1280,
+  STATE_WP = 1280,
+  STATE_SP = 1281,
+  STATE_DP = 1282,
+  STATE_ESIZE = 1283,
+  STATE_BSIZE = 1284,
+  STATE_DATA = 1285
 }
 
 /**
@@ -33,7 +33,7 @@ const wasmDecode = InWasm({
     env: { memory: new WebAssembly.Memory({ initial: 1 }) }
   },
   exports: {
-    dec: () => 0,
+    dec: () => 0
   },
   compile: {
     switches: ['-Wl,-z,stack-size=0', '-Wl,--stack-first']
@@ -52,7 +52,7 @@ const wasmDecode = InWasm({
     unsigned int *D1 = (unsigned int *) ${P32.D1*4};
     unsigned int *D2 = (unsigned int *) ${P32.D2*4};
     unsigned int *D3 = (unsigned int *) ${P32.D3*4};
-    State *state = (State *) ${P32.State*4};
+    State *state = (State *) ${P32.STATE*4};
 
     int dec() {
       unsigned int nsp = (state->wp - 1) & ~3;
@@ -119,7 +119,7 @@ export class ChunkInplaceDecoder {
   constructor(public keepSize: number) {}
 
   public get data8(): Uint8Array {
-    return this._inst ? this._d.subarray(0, this._m32[P32.StateDp]) : EMPTY;
+    return this._inst ? this._d.subarray(0, this._m32[P32.STATE_DP]) : EMPTY;
   }
 
   public release(): void {
@@ -127,38 +127,38 @@ export class ChunkInplaceDecoder {
     if (this._d.length > this.keepSize) {
       this.init(1);
     }
-    this._m32[P32.StateWp] = 0;
-    this._m32[P32.StateSp] = 0;
-    this._m32[P32.StateDp] = 0;
+    this._m32[P32.STATE_WP] = 0;
+    this._m32[P32.STATE_SP] = 0;
+    this._m32[P32.STATE_DP] = 0;
   }
 
   public init(size: number): void {
-    const bytes = (Math.ceil(size / 3) + P32.StateData) * 4;
+    const bytes = (Math.ceil(size / 3) + P32.STATE_DATA) * 4;
     if (!this._inst) {
       this._mem = new WebAssembly.Memory({ initial: Math.ceil(bytes / 65536) });
       this._inst = wasmDecode({ env: { memory: this._mem } });
       this._m32 = new Uint32Array(this._mem.buffer, 0);
       this._m32.set(D, P32.D0);
-      this._d = new Uint8Array(this._mem.buffer, P32.StateData * 4);
+      this._d = new Uint8Array(this._mem.buffer, P32.STATE_DATA * 4);
     } else if (this._mem.buffer.byteLength < bytes) {
       this._mem.grow(Math.ceil((bytes - this._mem.buffer.byteLength) / 65536));
       this._m32 = new Uint32Array(this._mem.buffer, 0);
-      this._d = new Uint8Array(this._mem.buffer, P32.StateData * 4);
+      this._d = new Uint8Array(this._mem.buffer, P32.STATE_DATA * 4);
     }
-    this._m32[P32.StateBsize] = size;
+    this._m32[P32.STATE_BSIZE] = size;
     size = Math.ceil(size / 3) * 4;
-    this._m32[P32.StateEsize] = size;
-    this._m32[P32.StateWp] = 0;
-    this._m32[P32.StateSp] = 0;
-    this._m32[P32.StateDp] = 0;
+    this._m32[P32.STATE_ESIZE] = size;
+    this._m32[P32.STATE_WP] = 0;
+    this._m32[P32.STATE_SP] = 0;
+    this._m32[P32.STATE_DP] = 0;
   }
 
   public put(data: Uint8Array | Uint16Array | Uint32Array, start: number, end: number): number {
     const m = this._m32;
-    if (end - start + m[P32.StateWp] > m[P32.StateEsize]) return 1;
+    if (end - start + m[P32.STATE_WP] > m[P32.STATE_ESIZE]) return 1;
     // NOTE: the uint32 to uint8 reduction is quite costly (~30% of decoder runtime)
-    this._d.set(data.subarray(start, end), m[P32.StateWp]);
-    m[P32.StateWp] += end - start;
+    this._d.set(data.subarray(start, end), m[P32.STATE_WP]);
+    m[P32.STATE_WP] += end - start;
     return this._inst.exports.dec();
   }
 
@@ -169,33 +169,33 @@ export class ChunkInplaceDecoder {
     if (v2 === PAD) {
       const accu = D0[v0] | D1[v1];
       if (accu >> 24) return true;
-      d[m[P32.StateDp]++] = accu;
-      return m[P32.StateDp] !== m[P32.StateBsize];
+      d[m[P32.STATE_DP]++] = accu;
+      return m[P32.STATE_DP] !== m[P32.STATE_BSIZE];
     }
     if (v3 === PAD) {
       const accu = D0[v0] | D1[v1] | D2[v2];
       if (accu >> 24) return true;
-      d[m[P32.StateDp]++] = accu;
-      d[m[P32.StateDp]++] = accu >> 8;
-      return m[P32.StateDp] !== m[P32.StateBsize];
+      d[m[P32.STATE_DP]++] = accu;
+      d[m[P32.STATE_DP]++] = accu >> 8;
+      return m[P32.STATE_DP] !== m[P32.STATE_BSIZE];
     }
     const accu = D0[v0] | D1[v1] | D2[v2] | D3[v3];
     if (accu >> 24) return true;
-    d[m[P32.StateDp]++] = accu;
-    d[m[P32.StateDp]++] = accu >> 8;
-    d[m[P32.StateDp]++] = accu >> 16;
-    return m[P32.StateDp] !== m[P32.StateBsize];
+    d[m[P32.STATE_DP]++] = accu;
+    d[m[P32.STATE_DP]++] = accu >> 8;
+    d[m[P32.STATE_DP]++] = accu >> 16;
+    return m[P32.STATE_DP] !== m[P32.STATE_BSIZE];
   }
 
   // TODO: move to wasm
   public end(): boolean {
     const d = this._d;
     const m = this._m32;
-    const p = m[P32.StateSp];
-    let rem = m[P32.StateWp] - m[P32.StateSp];
+    const p = m[P32.STATE_SP];
+    let rem = m[P32.STATE_WP] - m[P32.STATE_SP];
     if (rem > 4) {
       if (this._inst.exports.dec()) return true;
-      rem = m[P32.StateWp] - m[P32.StateSp];
+      rem = m[P32.STATE_WP] - m[P32.STATE_SP];
     }
     return !rem
       ? true
