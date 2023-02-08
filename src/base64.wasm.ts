@@ -22,7 +22,7 @@ const enum P32 {
 }
 
 /**
- * base64 decoder in uint32.
+ * wasm base64 decoder.
  */
 const wasmDecode = InWasm({
   name: 'decode',
@@ -33,7 +33,8 @@ const wasmDecode = InWasm({
     env: { memory: new WebAssembly.Memory({ initial: 1 }) }
   },
   exports: {
-    dec: () => 0
+    dec: () => 0,
+    end: () => 0
   },
   compile: {
     switches: ['-Wl,-z,stack-size=0', '-Wl,--stack-first']
@@ -54,15 +55,15 @@ const wasmDecode = InWasm({
     unsigned int *D3 = (unsigned int *) ${P32.D3*4};
     State *state = (State *) ${P32.STATE*4};
 
-    int dec() {
+    __attribute__((noinline)) int dec() {
       unsigned int nsp = (state->wp - 1) & ~3;
       unsigned char *src = state->data + state->sp;
-      unsigned char *src_end = state->data + nsp;
+      unsigned char *end = state->data + nsp;
       unsigned char *dst = state->data + state->dp;
       unsigned int accu;
 
-      while (src < src_end) {
-        if ((accu = D0[*src] | D1[*(src+1)] | D2[*(src+2)] | D3[*(src+3)]) >> 24) return 1;
+      while (src < end) {
+        if ((accu = D0[src[0]] | D1[src[1]] | D2[src[2]] | D3[src[3]]) >> 24) return 1;
         *((unsigned int *) dst) = accu;
         dst += 3;
         src += 4;
@@ -71,12 +72,35 @@ const wasmDecode = InWasm({
       state->dp = dst - state->data;
       return 0;
     }
+
+    int end() {
+      int rem = state->wp - state->sp;
+      if (rem > 4 && dec()) return 1;
+      rem = state->wp - state->sp;
+      if (rem < 2) return 1;
+
+      unsigned char *src = state->data + state->sp;
+      unsigned int accu = D0[src[0]] | D1[src[1]];
+      int dp = 1;
+      if (rem > 2 && src[2] != 61) {
+        accu |= D2[src[2]];
+        dp++;
+      }
+      if (rem == 4 && src[3] != 61) {
+        accu |= D3[src[3]];
+        dp++;
+      }
+      if (accu >> 24) return 1;
+      *((unsigned int *) (state->data + state->dp)) = accu;
+      state->dp += dp;
+      return state->dp != state->b_size;
+    }
     `
 });
+
 // FIXME: currently broken in inwasm
 type ExtractDefinition<Type> = Type extends () => IWasmInstance<infer X> ? X : never;
 type DecodeDefinition = ExtractDefinition<typeof wasmDecode>;
-
 
 // base64 map
 const MAP = new Uint8Array(
@@ -84,21 +108,15 @@ const MAP = new Uint8Array(
     .split('')
     .map(el => el.charCodeAt(0))
 );
-const PAD = 61; // 0x3D =
 
 // init decoder maps in LE order
 const D = new Uint32Array(1024);
-const D0 = D.subarray(0, 256);
-const D1 = D.subarray(256, 512);
-const D2 = D.subarray(512, 768);
-const D3 = D.subarray(768, 1024);
-for (let i = 0; i < MAP.length; ++i) D0[MAP[i]] = i << 2;
-for (let i = 0; i < MAP.length; ++i) D1[MAP[i]] = i >> 4 | ((i << 4) & 0xFF) << 8;
-for (let i = 0; i < MAP.length; ++i) D2[MAP[i]] = (i >> 2) << 8 | ((i << 6) & 0xFF) << 16;
-for (let i = 0; i < MAP.length; ++i) D3[MAP[i]] = i << 16;
+for (let i = 0; i < MAP.length; ++i) D[MAP[i]] = i << 2;
+for (let i = 0; i < MAP.length; ++i) D[256 + MAP[i]] = i >> 4 | ((i << 4) & 0xFF) << 8;
+for (let i = 0; i < MAP.length; ++i) D[512 + MAP[i]] = (i >> 2) << 8 | ((i << 6) & 0xFF) << 16;
+for (let i = 0; i < MAP.length; ++i) D[768 + MAP[i]] = i << 16;
 
 const EMPTY = new Uint8Array(0);
-
 
 /**
  * base64 streamline inplace decoder.
@@ -125,84 +143,49 @@ export class ChunkInplaceDecoder {
   public release(): void {
     if (!this._inst) return;
     if (this._d.length > this.keepSize) {
-      this.init(1);
+      this._inst = this._m32 = this._d = this._mem = null!;
+    } else {
+      this._m32[P32.STATE_WP] = 0;
+      this._m32[P32.STATE_SP] = 0;
+      this._m32[P32.STATE_DP] = 0;
     }
-    this._m32[P32.STATE_WP] = 0;
-    this._m32[P32.STATE_SP] = 0;
-    this._m32[P32.STATE_DP] = 0;
   }
 
   public init(size: number): void {
+    let m = this._m32;
     const bytes = (Math.ceil(size / 3) + P32.STATE_DATA) * 4;
     if (!this._inst) {
       this._mem = new WebAssembly.Memory({ initial: Math.ceil(bytes / 65536) });
       this._inst = wasmDecode({ env: { memory: this._mem } });
-      this._m32 = new Uint32Array(this._mem.buffer, 0);
-      this._m32.set(D, P32.D0);
+      m = new Uint32Array(this._mem.buffer, 0);
+      m.set(D, P32.D0);
       this._d = new Uint8Array(this._mem.buffer, P32.STATE_DATA * 4);
     } else if (this._mem.buffer.byteLength < bytes) {
       this._mem.grow(Math.ceil((bytes - this._mem.buffer.byteLength) / 65536));
-      this._m32 = new Uint32Array(this._mem.buffer, 0);
+      m = new Uint32Array(this._mem.buffer, 0);
       this._d = new Uint8Array(this._mem.buffer, P32.STATE_DATA * 4);
     }
-    this._m32[P32.STATE_BSIZE] = size;
+    m![P32.STATE_BSIZE] = size;
     size = Math.ceil(size / 3) * 4;
-    this._m32[P32.STATE_ESIZE] = size;
-    this._m32[P32.STATE_WP] = 0;
-    this._m32[P32.STATE_SP] = 0;
-    this._m32[P32.STATE_DP] = 0;
+    m![P32.STATE_ESIZE] = size;
+    m![P32.STATE_WP] = 0;
+    m![P32.STATE_SP] = 0;
+    m![P32.STATE_DP] = 0;
+    this._m32 = m!;
   }
 
-  public put(data: Uint8Array | Uint16Array | Uint32Array, start: number, end: number): number {
+  public put(data: Uint32Array, start: number, end: number): number {
+    if (!this._inst) return 1;
     const m = this._m32;
     if (end - start + m[P32.STATE_WP] > m[P32.STATE_ESIZE]) return 1;
-    // NOTE: the uint32 to uint8 reduction is quite costly (~30% of decoder runtime)
     this._d.set(data.subarray(start, end), m[P32.STATE_WP]);
     m[P32.STATE_WP] += end - start;
-    return m[P32.STATE_WP] - m[P32.STATE_SP] > 262144 ? this._inst.exports.dec() : 0;
+    // max chunk in input handler is 2^17, try to run in "tandem mode"
+    // also assures that we dont run into illegal offsets in the wasm part
+    return m[P32.STATE_WP] - m[P32.STATE_SP] >= 131072 ? this._inst.exports.dec() : 0;
   }
 
-  // TODO: move to wasm
-  private _fin(v0: number, v1: number, v2: number, v3: number): boolean {
-    const d = this._d;
-    const m = this._m32;
-    if (v2 === PAD) {
-      const accu = D0[v0] | D1[v1];
-      if (accu >> 24) return true;
-      d[m[P32.STATE_DP]++] = accu;
-      return m[P32.STATE_DP] !== m[P32.STATE_BSIZE];
-    }
-    if (v3 === PAD) {
-      const accu = D0[v0] | D1[v1] | D2[v2];
-      if (accu >> 24) return true;
-      d[m[P32.STATE_DP]++] = accu;
-      d[m[P32.STATE_DP]++] = accu >> 8;
-      return m[P32.STATE_DP] !== m[P32.STATE_BSIZE];
-    }
-    const accu = D0[v0] | D1[v1] | D2[v2] | D3[v3];
-    if (accu >> 24) return true;
-    d[m[P32.STATE_DP]++] = accu;
-    d[m[P32.STATE_DP]++] = accu >> 8;
-    d[m[P32.STATE_DP]++] = accu >> 16;
-    return m[P32.STATE_DP] !== m[P32.STATE_BSIZE];
-  }
-
-  // TODO: move to wasm
-  public end(): boolean {
-    const d = this._d;
-    const m = this._m32;
-    const p = m[P32.STATE_SP];
-    let rem = m[P32.STATE_WP] - m[P32.STATE_SP];
-    if (rem > 4) {
-      if (this._inst.exports.dec()) return true;
-      rem = m[P32.STATE_WP] - m[P32.STATE_SP];
-    }
-    return rem < 2
-      ? true
-      : this._fin(
-        d[p],
-        d[p + 1],
-        rem > 2 ? d[p + 2] : PAD,
-        rem === 4 ? d[p + 3] : PAD);
+  public end(): number {
+    return this._inst ? this._inst.exports.end() : 1;
   }
 }
