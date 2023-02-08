@@ -159,7 +159,7 @@ export class ChunkInplaceDecoder {
     // NOTE: the uint32 to uint8 reduction is quite costly (~30% of decoder runtime)
     this._d.set(data.subarray(start, end), m[P32.STATE_WP]);
     m[P32.STATE_WP] += end - start;
-    return this._inst.exports.dec();
+    return m[P32.STATE_WP] - m[P32.STATE_SP] > 262144 ? this._inst.exports.dec() : 0;
   }
 
   // TODO: move to wasm
@@ -197,14 +197,12 @@ export class ChunkInplaceDecoder {
       if (this._inst.exports.dec()) return true;
       rem = m[P32.STATE_WP] - m[P32.STATE_SP];
     }
-    return !rem
+    return rem < 2
       ? true
-      : rem === 1
-        ? true
-        : this._fin(
-          d[p],
-          d[p + 1],
-          rem > 2 ? d[p + 2] : PAD,
-          rem === 4 ? d[p + 3] : PAD);
+      : this._fin(
+        d[p],
+        d[p + 1],
+        rem > 2 ? d[p + 2] : PAD,
+        rem === 4 ? d[p + 3] : PAD);
   }
 }
