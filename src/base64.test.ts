@@ -1,7 +1,9 @@
 import { assert } from 'chai';
 import { Base64Decoder } from './base64.wasm';
 
+// eslint-disable-next-line
 declare const Buffer: any;
+
 
 // some helpers
 function toBs(bytes: Uint8Array): string {
@@ -17,8 +19,8 @@ function fromBs(bs: string): Uint8Array {
 function encNative(bytes: Uint8Array): string {
   return typeof Buffer !== 'undefined' ? Buffer.from(bytes).toString('base64') : btoa(toBs(bytes));
 }
-function rtrim(x: string, c: string) {
-  var end = x.length - 1;
+function rtrim(x: string, c: string): string {
+  let end = x.length - 1;
   while (c.indexOf(x[end]) >= 0) end -= 1;
   return x.slice(0, end + 1);
 }

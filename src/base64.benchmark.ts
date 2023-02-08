@@ -1,6 +1,7 @@
 import { ThroughputRuntimeCase, perfContext } from 'xterm-benchmark';
 import { Base64Decoder } from './base64.wasm';
 
+// eslint-disable-next-line
 declare const Buffer: any;
 
 function toBytes(s: string): Uint8Array {
@@ -15,6 +16,12 @@ const d256 = 'ABCD'.repeat(64);
 const d4096 = 'ABCD'.repeat(64 * 16);
 const d65536 = 'ABCD'.repeat(64 * 16 * 16);
 const d1M = 'ABCD'.repeat(64 * 16 * 16 * 16);
+const b256   = toBytes(d256);
+const b4096  = toBytes(d4096);
+const b65536 = toBytes(d65536);
+const b1M    = toBytes(d1M);
+const dec = new Base64Decoder(4000000);
+
 
 const RUNS = 100;
 
@@ -42,12 +49,6 @@ perfContext('Base64', () => {
   });
 
   perfContext('Base64Decoder', () => {
-    const b256   = toBytes(d256);
-    const b4096  = toBytes(d4096);
-    const b65536 = toBytes(d65536);
-    const b1M    = toBytes(d1M);
-    const dec = new Base64Decoder(4000000);
-
     new ThroughputRuntimeCase('decode - 256', () => {
       dec.init(192);
       dec.put(b256, 0, b256.length);
