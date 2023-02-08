@@ -6,7 +6,7 @@
 import { IOscHandler, IResetHandler, ITerminalExt } from './Types';
 import { ImageRenderer } from './ImageRenderer';
 import { ImageStorage, CELL_SIZE_DEFAULT } from './ImageStorage';
-import { ChunkInplaceDecoder } from './base64';
+import { ChunkInplaceDecoder } from './base64.wasm';
 
 
 const FILE_MARKER = [70, 105, 108, 101];
@@ -196,7 +196,7 @@ class HeaderParser {
 type ImageType = 'image/png' | 'image/jpeg' | 'unsupported' | '';
 
 function guessType(d: Uint8Array): ImageType {
-  const d32 = new Uint32Array(d.buffer, 0, 6);
+  const d32 = new Uint32Array(d.buffer, d.byteOffset, 6);
   if (d32[0] === 0x474E5089 && d32[1] === 0x0A1A0A0D && d32[3] === 0x52444849) return 'image/png';
   if ((d32[0] === 0xE0FFD8FF || d32[0] === 0xE1FFD8FF)
     &&  (
@@ -300,7 +300,7 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
         }
       }
     }
-    if (!this._mime && this._dec.dp > 24) {
+    if (!this._mime && this._dec.data8.length > 24) {
       this._mime = guessType(this._dec.data8);
       if (this._mime === 'unsupported') {
         console.warn('IIP: unsupported image type');
@@ -322,7 +322,7 @@ export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
 
     // finalize base64 decoding, exit if base64 decoder yields less bytes than expected
     if (this._dec.end()) return true;
-    if (!this._mime && this._dec.dp > 24) {  // FIXME: >24 is wrong this late...
+    if (!this._mime && this._dec.data8.length > 24) {  // FIXME: >24 is wrong this late...
       this._mime = guessType(this._dec.data8);
       if (this._mime === 'unsupported') {
         console.warn('IIP: unsupported image type');
