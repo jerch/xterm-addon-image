@@ -8,7 +8,7 @@ declare const Buffer: any;
 // some helpers
 function toBs(bytes: Uint8Array): string {
   let bs = '';
-  for (let i = 0; i < bytes.length; ++i) bs += String.fromCharCode(bytes[0]);
+  for (let i = 0; i < bytes.length; ++i) bs += String.fromCharCode(bytes[i]);
   return bs;
 }
 function fromBs(bs: string): Uint8Array {
