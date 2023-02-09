@@ -137,7 +137,7 @@ export class ImageAddon implements ITerminalAddon {
     // iTerm IIP handler
     // TODO: extend options
     if (true) {
-      const iipHandler = new IIPHandler(this._renderer!, this._storage!, terminal);
+      const iipHandler = new IIPHandler(this._opts, this._renderer!, this._storage!, terminal);
       this._handlers.set('iip', iipHandler);
       this._disposeLater(
         terminal._core._inputHandler._parser.registerOscHandler(1337, iipHandler)
