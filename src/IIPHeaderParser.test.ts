@@ -1,5 +1,5 @@
 import { assert } from 'chai';
-import { HeaderParser, HeaderState, IHeaderFields } from './IIPHandler';
+import { HeaderParser, HeaderState, IHeaderFields } from './IIPHeaderParser';
 
 
 const CASES: [string, IHeaderFields][] = [
