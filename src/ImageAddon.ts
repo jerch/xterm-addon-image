@@ -3,7 +3,7 @@
  * @license MIT
  */
 
-import { InlineImagesProtocolHandler } from './InlineImagesProtocolHandler';
+import { IIPHandler } from './IIPHandler';
 import { ITerminalAddon, IDisposable } from 'xterm';
 import { ImageRenderer } from './ImageRenderer';
 import { ImageStorage, CELL_SIZE_DEFAULT } from './ImageStorage';
@@ -137,7 +137,7 @@ export class ImageAddon implements ITerminalAddon {
     // iTerm IIP handler
     // TODO: extend options
     if (true) {
-      const iipHandler = new InlineImagesProtocolHandler(this._renderer!, this._storage!, terminal);
+      const iipHandler = new IIPHandler(this._renderer!, this._storage!, terminal);
       this._handlers.set('iip', iipHandler);
       this._disposeLater(
         terminal._core._inputHandler._parser.registerOscHandler(1337, iipHandler)

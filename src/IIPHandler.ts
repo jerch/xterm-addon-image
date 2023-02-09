@@ -9,11 +9,15 @@ import { ImageStorage, CELL_SIZE_DEFAULT } from './ImageStorage';
 import { Base64Decoder } from './base64.wasm';
 
 
+// eslint-disable-next-line
+declare const Buffer: any;
+
+
 const FILE_MARKER = [70, 105, 108, 101];
 const MAX_FIELDCHARS = 1024;
 const MAX_DATA = 4194304;
 
-const enum HeaderState {
+export const enum HeaderState {
   START = 0,
   ABORT = 1,
   KEY = 2,
@@ -22,7 +26,7 @@ const enum HeaderState {
 }
 
 
-interface IHeaderFields {
+export interface IHeaderFields {
   // base-64 encoded filename. Defaults to "Unnamed file".
   name: string;
   // File size in bytes. The file transfer will be canceled if this size is exceeded.
@@ -85,7 +89,10 @@ function toSize(data: Uint32Array): string {
 
 // name is base64 encoded utf-8
 function toName(data: Uint32Array): string {
-  const bs = atob(toStr(data));  // TODO: needs nodejs workaround
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(toStr(data), 'base64').toString();
+  }
+  const bs = atob(toStr(data));
   const b = new Uint8Array(bs.length);
   for (let i = 0; i < b.length; ++i) {
     b[i] = bs.charCodeAt(i);
@@ -102,7 +109,7 @@ const DECODERS: {[key: string]: (v: Uint32Array) => any} = {
   preserveAspectRatio: toInt
 };
 
-class HeaderParser {
+export class HeaderParser {
   public state: HeaderState = HeaderState.START;
   private _buffer = new Uint32Array(MAX_FIELDCHARS);
   private _position = 0;
@@ -244,7 +251,7 @@ const DIM: {[key in ImageType]: (d: Uint8Array) => [number, number]} = {
 
 
 
-export class InlineImagesProtocolHandler implements IOscHandler, IResetHandler {
+export class IIPHandler implements IOscHandler, IResetHandler {
   private _aborted = false;
   private _hp = new HeaderParser();
   private _header: IHeaderFields = DEFAULT_HEADER;
