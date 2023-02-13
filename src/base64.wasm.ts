@@ -18,7 +18,7 @@ const enum P32 {
   STATE_DP = 1282,
   STATE_ESIZE = 1283,
   STATE_BSIZE = 1284,
-  STATE_DATA = 1285
+  STATE_DATA = 1288   // 16 aligned
 }
 
 /**
@@ -46,6 +46,7 @@ const wasmDecode = InWasm({
       unsigned int dp;
       unsigned int e_size;
       unsigned int b_size;
+      unsigned int dummy[3];
       unsigned char data[0];
     } State;
 
@@ -97,6 +98,159 @@ const wasmDecode = InWasm({
     }
     `
 });
+
+// SIMD version - commented out for now due to missing Safari support
+// const wasmDecode = InWasm({
+//   name: 'decode',
+//   type: OutputType.INSTANCE,
+//   mode: OutputMode.SYNC,
+//   srctype: 'Clang-C',
+//   imports: {
+//     env: { memory: new WebAssembly.Memory({ initial: 1 }) }
+//   },
+//   exports: {
+//     dec: () => 0,
+//     end: () => 0
+//   },
+//   compile: {
+//     switches: ['-msimd128', '-Wl,-z,stack-size=0', '-Wl,--stack-first']
+//   },
+//   code: `
+//     #include <wasm_simd128.h>
+//     typedef struct {
+//       unsigned int wp;
+//       unsigned int sp;
+//       unsigned int dp;
+//       unsigned int e_size;
+//       unsigned int b_size;
+//       unsigned int dummy[3];
+//       unsigned char data[0];
+//     } State;
+//
+//     unsigned int *D0 = (unsigned int *) ${P32.D0*4};
+//     unsigned int *D1 = (unsigned int *) ${P32.D1*4};
+//     unsigned int *D2 = (unsigned int *) ${P32.D2*4};
+//     unsigned int *D3 = (unsigned int *) ${P32.D3*4};
+//     State *state = (State *) ${P32.STATE*4};
+//
+//     #define packed_byte(x) wasm_i8x16_splat((char) x)
+//     #define packed_dword(x) wasm_i32x4_splat(x)
+//     #define masked(x, mask) wasm_v128_and(x, wasm_i32x4_splat(mask))
+//
+//     int dec4() {
+//       unsigned int nsp = (state->wp - 1) & ~3;
+//       unsigned char *src = state->data + state->sp;
+//       unsigned char *end = state->data + nsp;
+//       unsigned char *dst = state->data + state->dp;
+//       unsigned int accu;
+//
+//       while (src < end) {
+//         if ((accu = D0[src[0]] | D1[src[1]] | D2[src[2]] | D3[src[3]]) >> 24) return 1;
+//         *((unsigned int *) dst) = accu;
+//         dst += 3;
+//         src += 4;
+//       }
+//       state->sp = nsp;
+//       state->dp = dst - state->data;
+//       return 0;
+//     }
+//
+//     int dec() {
+//       unsigned int nsp = (state->wp - 1) & ~15;
+//       unsigned char *src = state->data + state->sp;
+//       unsigned char *end = state->data + nsp;
+//       unsigned char *dst = state->data + state->dp;
+//       unsigned int accu;
+//
+//       v128_t err = wasm_i8x16_splat(0);
+//
+//       while (src < end) {
+//         v128_t data = wasm_v128_load((v128_t *) src);
+//
+//         // wasm-simd rewrite of http://0x80.pl/notesen/2016-01-17-sse-base64-decoding.html#vector-lookup-pshufb
+//         const v128_t higher_nibble = wasm_u32x4_shr(data, 4) & packed_byte(0x0f);
+//         const char linv = 1;
+//         const char hinv = 0;
+//
+//         const v128_t lower_bound_LUT = wasm_i8x16_make(
+//             /* 0 */ linv, /* 1 */ linv, /* 2 */ 0x2b, /* 3 */ 0x30,
+//             /* 4 */ 0x41, /* 5 */ 0x50, /* 6 */ 0x61, /* 7 */ 0x70,
+//             /* 8 */ linv, /* 9 */ linv, /* a */ linv, /* b */ linv,
+//             /* c */ linv, /* d */ linv, /* e */ linv, /* f */ linv
+//         );
+//         const v128_t upper_bound_LUT = wasm_i8x16_make(
+//             /* 0 */ hinv, /* 1 */ hinv, /* 2 */ 0x2b, /* 3 */ 0x39,
+//             /* 4 */ 0x4f, /* 5 */ 0x5a, /* 6 */ 0x6f, /* 7 */ 0x7a,
+//             /* 8 */ hinv, /* 9 */ hinv, /* a */ hinv, /* b */ hinv,
+//             /* c */ hinv, /* d */ hinv, /* e */ hinv, /* f */ hinv
+//         );
+//         // the difference between the shift and lower bound
+//         const v128_t shift_LUT = wasm_i8x16_make(
+//             /* 0 */ 0x00,        /* 1 */ 0x00,        /* 2 */ 0x3e - 0x2b, /* 3 */ 0x34 - 0x30,
+//             /* 4 */ 0x00 - 0x41, /* 5 */ 0x0f - 0x50, /* 6 */ 0x1a - 0x61, /* 7 */ 0x29 - 0x70,
+//             /* 8 */ 0x00,        /* 9 */ 0x00,        /* a */ 0x00,        /* b */ 0x00,
+//             /* c */ 0x00,        /* d */ 0x00,        /* e */ 0x00,        /* f */ 0x00
+//         );
+//
+//         const v128_t upper_bound = wasm_i8x16_swizzle(upper_bound_LUT, higher_nibble);
+//         const v128_t lower_bound = wasm_i8x16_swizzle(lower_bound_LUT, higher_nibble);
+//
+//         const v128_t below = wasm_i8x16_lt(data, lower_bound);
+//         const v128_t above = wasm_i8x16_gt(data, upper_bound);
+//         const v128_t eq_2f = wasm_i8x16_eq(data, packed_byte(0x2f));
+//
+//         // in_range = not (below or above) or eq_2f
+//         // outside  = not in_range = below or above and not eq_2f (from deMorgan law)
+//         const v128_t outside = wasm_v128_andnot(eq_2f, above | below);
+//         err = wasm_v128_or(err, outside);
+//
+//         const v128_t shift  = wasm_i8x16_swizzle(shift_LUT, higher_nibble);
+//         const v128_t t0     = wasm_i8x16_add(data, shift);
+//         v128_t v = wasm_i8x16_add(t0, wasm_v128_and(eq_2f, packed_byte(-3)));
+//
+//         // pack bytes
+//         const v128_t ca = masked(v, 0x003f003f);
+//         const v128_t db = masked(v, 0x3f003f00);
+//         const v128_t t00 = wasm_v128_or(wasm_u32x4_shr(db, 8), wasm_i32x4_shl(ca, 6));
+//         v128_t res = wasm_v128_or(wasm_u32x4_shr(t00, 16), wasm_i32x4_shl(t00, 12));
+//         res = wasm_i8x16_swizzle(res, wasm_i8x16_const(2, 1, 0, 6, 5, 4, 10, 9, 8, 14, 13, 12, 16, 16, 16, 16));
+//
+//         wasm_v128_store((v128_t *) dst, res);
+//         dst += 12;
+//         src += 16;
+//       }
+//
+//       if (wasm_i8x16_bitmask(err) != 0) return 1;
+//
+//       state->sp = nsp;
+//       state->dp = dst - state->data;
+//       return 0;
+//     }
+//
+//     int end() {
+//       int rem = state->wp - state->sp;
+//       if (rem > 4 && dec4()) return 1;
+//       rem = state->wp - state->sp;
+//       if (rem < 2) return 1;
+//
+//       unsigned char *src = state->data + state->sp;
+//       unsigned int accu = D0[src[0]] | D1[src[1]];
+//       int dp = 1;
+//       if (rem > 2 && src[2] != 61) {
+//         accu |= D2[src[2]];
+//         dp++;
+//       }
+//       if (rem == 4 && src[3] != 61) {
+//         accu |= D3[src[3]];
+//         dp++;
+//       }
+//       if (accu >> 24) return 1;
+//       *((unsigned int *) (state->data + state->dp)) = accu;
+//       state->dp += dp;
+//       return state->dp != state->b_size;
+//     }
+//     `
+// });
 
 // FIXME: currently broken in inwasm
 type ExtractDefinition<Type> = Type extends () => IWasmInstance<infer X> ? X : never;
