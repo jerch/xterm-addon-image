@@ -265,6 +265,7 @@ const MAP = new Uint8Array(
 
 // init decoder maps in LE order
 const D = new Uint32Array(1024);
+D.fill(0xFF000000);
 for (let i = 0; i < MAP.length; ++i) D[MAP[i]] = i << 2;
 for (let i = 0; i < MAP.length; ++i) D[256 + MAP[i]] = i >> 4 | ((i << 4) & 0xFF) << 8;
 for (let i = 0; i < MAP.length; ++i) D[512 + MAP[i]] = (i >> 2) << 8 | ((i << 6) & 0xFF) << 16;

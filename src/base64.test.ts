@@ -24,6 +24,11 @@ function rtrim(x: string, c: string): string {
   while (c.indexOf(x[end]) >= 0) end -= 1;
   return x.slice(0, end + 1);
 }
+const MAP = new Uint8Array(
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    .split('')
+    .map(el => el.charCodeAt(0))
+);
 
 
 describe('Base64Decoder', () => {
@@ -100,6 +105,19 @@ describe('Base64Decoder', () => {
         assert.strictEqual(dec.put(enc, 0, enc.length), 0);
         assert.strictEqual(dec.end(), 0);
         assert.deepEqual(dec.data8, d.slice(0, i + 1));
+      }
+    });
+    it('exit on false byte', () => {
+      const dec = new Base64Decoder(0);
+      for (let pos = 0; pos < 4; ++pos) {
+        const inp = new Uint8Array([65, 65, 65, 65]);
+        for (let i = 0; i < 256; ++i) {
+          dec.release();
+          dec.init(3);
+          inp[pos] = i;
+          dec.put(inp, 0, 4);
+          assert.strictEqual(dec.end(), MAP.includes(i) ? 0 : 1);
+        }
       }
     });
   });
