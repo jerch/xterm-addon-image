@@ -277,10 +277,11 @@ const EMPTY = new Uint8Array(0);
  * base64 streamline inplace decoder.
  *
  * Features / assumptions:
- * - optimized uint32 read (only LE support!)
+ * - optimized uint32 read/write (only LE support!)
+ * - lazy chunkwise decoding
  * - errors out on any non base64 chars (no support for NL formatted base64)
  * - decodes in wasm
- * - inplace overwrite to save memory
+ * - inplace decoding to save memory
  * - supports a keepSize for lazy memory release
  */
 export class Base64Decoder {
@@ -291,10 +292,19 @@ export class Base64Decoder {
 
   constructor(public keepSize: number) {}
 
+  /**
+   * Currently decoded bytes (borrowed).
+   * Must be accessed before calling `release` or `init`.
+   */
   public get data8(): Uint8Array {
     return this._inst ? this._d.subarray(0, this._m32[P32.STATE_DP]) : EMPTY;
   }
 
+  /**
+   * Release memory conditionally based on `keepSize`.
+   * If memory gets released, also the wasm instance will be freed and recreated on next `init`,
+   * otherwise the instance will be reused.
+   */
   public release(): void {
     if (!this._inst) return;
     if (this._mem.buffer.byteLength > this.keepSize) {
@@ -306,6 +316,13 @@ export class Base64Decoder {
     }
   }
 
+  /**
+   * Initializes the decoder for new base64 data.
+   * Must be called before doing any decoding attempts.
+   * `size` is the amount of decoded bytes to be expected.
+   * The method will either spawn a new wasm instance or grow
+   * the needed memory of an existing instance.
+   */
   public init(size: number): void {
     let m = this._m32;
     const bytes = (Math.ceil(size / 3) + P32.STATE_DATA) * 4;
@@ -328,6 +345,11 @@ export class Base64Decoder {
     this._m32 = m;
   }
 
+  /**
+   * Put bytes in `data` from `start` to `end` (exclusive) into the decoder.
+   * Also decodes base64 data inplace once the payload exceeds 2^17 bytes.
+   * Returns 1 on error, else 0.
+   */
   public put(data: Uint8Array | Uint16Array | Uint32Array, start: number, end: number): number {
     if (!this._inst) return 1;
     const m = this._m32;
@@ -339,6 +361,12 @@ export class Base64Decoder {
     return m[P32.STATE_WP] - m[P32.STATE_SP] >= 131072 ? this._inst.exports.dec() : 0;
   }
 
+  /**
+   * End the current decoding.
+   * Decodes leftover payload and finally checks for the correct amount of
+   * decoded bytes by comparing to the value given to `init`.
+   * Returns 1 on error, else 0.
+   */
   public end(): number {
     return this._inst ? this._inst.exports.end() : 1;
   }
