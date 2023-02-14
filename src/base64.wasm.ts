@@ -320,13 +320,12 @@ export class Base64Decoder {
       m = new Uint32Array(this._mem.buffer, 0);
       this._d = new Uint8Array(this._mem.buffer, P32.STATE_DATA * 4);
     }
-    m![P32.STATE_BSIZE] = size;
-    size = Math.ceil(size / 3) * 4;
-    m![P32.STATE_ESIZE] = size;
-    m![P32.STATE_WP] = 0;
-    m![P32.STATE_SP] = 0;
-    m![P32.STATE_DP] = 0;
-    this._m32 = m!;
+    m[P32.STATE_BSIZE] = size;
+    m[P32.STATE_ESIZE] = Math.ceil(size / 3) * 4;
+    m[P32.STATE_WP] = 0;
+    m[P32.STATE_SP] = 0;
+    m[P32.STATE_DP] = 0;
+    this._m32 = m;
   }
 
   public put(data: Uint8Array | Uint16Array | Uint32Array, start: number, end: number): number {

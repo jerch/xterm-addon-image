@@ -109,13 +109,13 @@ describe('Base64Decoder', () => {
     });
     it('exit on false byte', () => {
       const dec = new Base64Decoder(0);
-      for (let pos = 0; pos < 4; ++pos) {
-        const inp = new Uint8Array([65, 65, 65, 65]);
+      for (let pos = 0; pos < 8; ++pos) {
+        const inp = new Uint8Array([65, 65, 65, 65, 65, 65, 65, 65]);
         for (let i = 0; i < 256; ++i) {
           dec.release();
-          dec.init(3);
+          dec.init(6);
           inp[pos] = i;
-          dec.put(inp, 0, 4);
+          dec.put(inp, 0, 8);
           assert.strictEqual(dec.end(), MAP.includes(i) ? 0 : 1);
         }
       }
