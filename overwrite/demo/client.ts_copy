@@ -87,8 +87,6 @@ interface IDemoAddon<T extends AddonType> {
     never;
 }
 
-const IMAGE_WORKER_PATH = '/workers/xterm-addon-image-worker.js';
-
 const addons: { [T in AddonType]: IDemoAddon<T> } = {
   attach: { name: 'attach', ctor: AttachAddon, canChange: false },
   canvas: { name: 'canvas', ctor: CanvasAddon, canChange: true },
@@ -256,7 +254,7 @@ function createTerminal(): void {
   addons.fit.instance = new FitAddon();
   addons.unicode11.instance = new Unicode11Addon();
   addons.webgl.instance = new WebglAddon();
-  addons.image.instance = new ImageAddon(IMAGE_WORKER_PATH);
+  addons.image.instance = new ImageAddon();
   // TODO: Remove arguments when link provider API is the default
   addons['web-links'].instance = new WebLinksAddon(undefined, undefined, true);
   typedTerm.loadAddon(addons.fit.instance);
@@ -557,8 +555,8 @@ function initAddons(term: TerminalType): void {
         if (checkbox.checked) {
           const ctorOptionsJson = document.querySelector<HTMLTextAreaElement>('#image-options').value;
           addon.instance = ctorOptionsJson
-            ? new addon.ctor(IMAGE_WORKER_PATH, JSON.parse(ctorOptionsJson))
-            : new addon.ctor(IMAGE_WORKER_PATH);
+            ? new addon.ctor(JSON.parse(ctorOptionsJson))
+            : new addon.ctor();
           term.loadAddon(addon.instance);
         } else {
           addon.instance!.dispose();
