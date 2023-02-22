@@ -64,7 +64,7 @@ const TESTDATA_IIP: [string, [number, number]][] = [
   [readFileSync('./addons/xterm-addon-image/fixture/iip/spinfox.iip', { encoding: 'utf-8' }), [148, 148]],
   [readFileSync('./addons/xterm-addon-image/fixture/iip/w3c_gif.iip', { encoding: 'utf-8' }), [72, 48]],
   [readFileSync('./addons/xterm-addon-image/fixture/iip/w3c_jpg.iip', { encoding: 'utf-8' }), [72, 48]],
-  [readFileSync('./addons/xterm-addon-image/fixture/iip/w3c_png.iip', { encoding: 'utf-8' }), [72, 48]],
+  [readFileSync('./addons/xterm-addon-image/fixture/iip/w3c_png.iip', { encoding: 'utf-8' }), [72, 48]]
 ];
 
 describe.only('ImageAddon', () => {
