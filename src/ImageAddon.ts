@@ -14,7 +14,7 @@ import { ITerminalExt, IImageAddonOptions, IResetHandler } from './Types';
 // default values of addon ctor options
 const DEFAULT_OPTIONS: IImageAddonOptions = {
   enableSizeReports: true,
-  pixelLimit: 25000000, // 16777216, // limit to 4096 * 4096 pixels
+  pixelLimit: 16777216, // limit to 4096 * 4096 pixels
   sixelSupport: true,
   sixelScrolling: true,
   sixelPaletteLimit: 256,
