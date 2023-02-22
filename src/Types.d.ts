@@ -96,9 +96,9 @@ export interface ICellSize {
 }
 
 export interface IImageSpec {
-  orig: HTMLCanvasElement | undefined;
+  orig: HTMLCanvasElement | ImageBitmap | undefined;
   origCellSize: ICellSize;
-  actual: HTMLCanvasElement | undefined;
+  actual: HTMLCanvasElement | ImageBitmap | undefined;
   actualCellSize: ICellSize;
   marker: IMarker | undefined;
   tileCount: number;
