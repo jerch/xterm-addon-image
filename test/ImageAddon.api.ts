@@ -9,7 +9,6 @@ import { Browser, Page } from 'playwright';
 import { IImageAddonOptions } from '../src/Types';
 import { FINALIZER, introducer, sixelEncode } from 'sixel';
 import { readFileSync } from 'fs';
-import PNG from 'png-ts';
 
 const APP = 'http://127.0.0.1:3001/test';
 
@@ -40,15 +39,14 @@ interface IDimensions {
 
 // image: 640 x 80, 512 color
 const TESTDATA: ITestData = (() => {
-  const pngImage = PNG.load(readFileSync('./addons/xterm-addon-image/fixture/palette.png'));
-  const data8 = pngImage.decode();
+  const data8 = readFileSync('./addons/xterm-addon-image/fixture/palette.blob');
   const data32 = new Uint32Array(data8.buffer);
   const palette = new Set<number>();
   for (let i = 0; i < data32.length; ++i) palette.add(data32[i]);
-  const sixel = sixelEncode(data8, pngImage.width, pngImage.height, [...palette]);
+  const sixel = sixelEncode(data8, 640, 80, [...palette]);
   return {
-    width: pngImage.width,
-    height: pngImage.height,
+    width: 640,
+    height: 80,
     bytes: data8,
     palette: [...palette],
     sixel
