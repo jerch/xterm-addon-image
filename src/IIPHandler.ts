@@ -67,7 +67,7 @@ export class IIPHandler implements IOscHandler, IResetHandler {
       }
       if (dataPos > 0) {
         this._header = Object.assign({}, DEFAULT_HEADER, this._hp.fields);
-        if (!this._header.inline || !this._header.size || this._header.size > this._opts.sixelSizeLimit) {  // FIXME: map own ctor opts
+        if (!this._header.inline || !this._header.size || this._header.size > this._opts.iipSizeLimit) {
           this._aborted = true;
           return;
         }

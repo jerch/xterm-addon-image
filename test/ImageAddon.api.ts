@@ -115,7 +115,9 @@ describe.only('ImageAddon', () => {
         sixelPaletteLimit: 512,  // set to 512 to get example image working
         sixelSizeLimit: 25000000,
         storageLimit: 128,
-        showPlaceholder: true
+        showPlaceholder: true,
+        iipSupport: true,
+        iipSizeLimit: 20000000
       };
       assert.deepEqual(await page.evaluate(`window.imageAddon._opts`), DEFAULT_OPTIONS);
     });
@@ -128,7 +130,9 @@ describe.only('ImageAddon', () => {
         sixelPaletteLimit: 1024,
         sixelSizeLimit: 1000,
         storageLimit: 10,
-        showPlaceholder: false
+        showPlaceholder: false,
+        iipSupport: false,
+        iipSizeLimit: 1000
       };
       await page.evaluate(opts => {
         (window as any).imageAddonCustom = new ImageAddon(opts.opts);

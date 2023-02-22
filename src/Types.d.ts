@@ -36,6 +36,8 @@ export interface IImageAddonOptions {
   sixelScrolling: boolean;
   sixelPaletteLimit: number;
   sixelSizeLimit: number;
+  iipSupport: boolean;
+  iipSizeLimit: number;
 }
 
 export interface IResetHandler {

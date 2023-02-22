@@ -20,7 +20,9 @@ const DEFAULT_OPTIONS: IImageAddonOptions = {
   sixelPaletteLimit: 256,
   sixelSizeLimit: 25000000,
   storageLimit: 128,
-  showPlaceholder: true
+  showPlaceholder: true,
+  iipSupport: true,
+  iipSizeLimit: 20000000
 };
 
 // max palette size supported by the sixel lib (compile time setting)
@@ -135,8 +137,7 @@ export class ImageAddon implements ITerminalAddon {
     }
 
     // iTerm IIP handler
-    // TODO: extend options
-    if (true) {
+    if (this._opts.iipSupport) {
       const iipHandler = new IIPHandler(this._opts, this._renderer!, this._storage!, terminal);
       this._handlers.set('iip', iipHandler);
       this._disposeLater(
