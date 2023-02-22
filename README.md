@@ -15,10 +15,11 @@ npm install --save xterm-addon-image
 
 ### Release Compatibility
 
-- 0.1.x - compatible to xterm.js 4.16.0 - 4.19.0
-- 0.2.0 - compatible to xterm.js 5.0.0
-- 0.3.0 - compatible to xterm.js 5.0.0
+- 0.4.0 - compatible to xterm.js 5.1.0
 - 0.3.1 - compatible to xterm.js 5.1.0
+- 0.3.0 - compatible to xterm.js 5.0.0
+- 0.2.0 - compatible to xterm.js 5.0.0
+- 0.1.x - compatible to xterm.js 4.16.0 - 4.19.0
 
 
 ### Clone & Build
@@ -235,6 +236,7 @@ _How can I adjust the memory usage?_
 
 ### Changelog
 
+- 0.4.0 IIP support
 - 0.3.1 compat release for xterm.js 5.1.0
 - 0.3.0 important change: worker removed from addon
 - 0.2.0 compat release for xterm.js 5.0.0
