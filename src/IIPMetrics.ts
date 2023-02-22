@@ -48,7 +48,7 @@ export function imageType(d: Uint8Array): IMetrics {
       mime: 'image/gif',
       width: d[7] << 8 | d[6],
       height: d[9] << 8 | d[8]
-    }
+    };
   }
   return UNSUPPORTED_TYPE;
 }
