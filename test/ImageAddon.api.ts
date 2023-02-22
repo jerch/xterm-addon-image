@@ -58,6 +58,14 @@ const SIXEL_SEQ_0 = introducer(0) + TESTDATA.sixel + FINALIZER;
 // const SIXEL_SEQ_1 = introducer(1) + TESTDATA.sixel + FINALIZER;
 // const SIXEL_SEQ_2 = introducer(2) + TESTDATA.sixel + FINALIZER;
 
+// NOTE: the data is loaded as string for easier transport through playwright
+const TESTDATA_IIP: [string, [number, number]][] = [
+  [readFileSync('./addons/xterm-addon-image/fixture/iip/palette.iip', { encoding: 'utf-8' }), [640, 80]],
+  [readFileSync('./addons/xterm-addon-image/fixture/iip/spinfox.iip', { encoding: 'utf-8' }), [148, 148]],
+  [readFileSync('./addons/xterm-addon-image/fixture/iip/w3c_gif.iip', { encoding: 'utf-8' }), [72, 48]],
+  [readFileSync('./addons/xterm-addon-image/fixture/iip/w3c_jpg.iip', { encoding: 'utf-8' }), [72, 48]],
+  [readFileSync('./addons/xterm-addon-image/fixture/iip/w3c_png.iip', { encoding: 'utf-8' }), [72, 48]],
+];
 
 describe.only('ImageAddon', () => {
   before(async () => {
@@ -243,6 +251,29 @@ describe.only('ImageAddon', () => {
       assert.equal(newUsage, usage);
     });
   });
+
+  describe('IIP support - testimages', () => {
+    it('palette.png', async () => {
+      await writeToTerminal(TESTDATA_IIP[0][0]);
+      assert.deepEqual(await getOrigSize(1), TESTDATA_IIP[0][1]);
+    });
+    it('spinfox.png', async () => {
+      await writeToTerminal(TESTDATA_IIP[1][0]);
+      assert.deepEqual(await getOrigSize(1), TESTDATA_IIP[1][1]);
+    });
+    it('w3c gif', async () => {
+      await writeToTerminal(TESTDATA_IIP[2][0]);
+      assert.deepEqual(await getOrigSize(1), TESTDATA_IIP[2][1]);
+    });
+    it('w3c jpeg', async () => {
+      await writeToTerminal(TESTDATA_IIP[3][0]);
+      assert.deepEqual(await getOrigSize(1), TESTDATA_IIP[3][1]);
+    });
+    it('w3c png', async () => {
+      await writeToTerminal(TESTDATA_IIP[4][0]);
+      assert.deepEqual(await getOrigSize(1), TESTDATA_IIP[4][1]);
+    });
+  });
 });
 
 /**
@@ -272,4 +303,11 @@ async function getScrollbackPlusRows(): Promise<number> {
 
 async function writeToTerminal(d: string): Promise<any> {
   return page.evaluate(data => new Promise(res => (window as any).term.write(data, res)), d);
+}
+
+async function getOrigSize(id: number): Promise<[number, number]> {
+  return page.evaluate<any>(`[
+    window.imageAddon._storage._images.get(${id}).orig.width,
+    window.imageAddon._storage._images.get(${id}).orig.height
+  ]`);
 }
