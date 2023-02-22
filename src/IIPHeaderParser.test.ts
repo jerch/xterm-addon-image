@@ -39,7 +39,7 @@ function fromBs(bs: string): Uint32Array {
   return r;
 }
 
-describe('HeaderParser', () => {
+describe('IIPHeaderParser', () => {
   it('at once', () => {
     const hp = new HeaderParser();
     for (const example of CASES) {
