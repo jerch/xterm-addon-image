@@ -137,6 +137,8 @@ export class ImageStorage implements IDisposable {
     for (const spec of this._images.values()) {
       spec.marker?.dispose();
     }
+    // NOTE: marker.dispose above already calls ImageBitmap.close
+    // therefore we can just wipe the map here
     this._images.clear();
     this._renderer.clearAll();
   }
@@ -170,6 +172,16 @@ export class ImageStorage implements IDisposable {
     return storedPixels;
   }
 
+  private _delImg(id: number): void {
+    const spec = this._images.get(id);
+    this._images.delete(id);
+    // FIXME: really ugly workaround to get bitmaps deallocated :(
+    const win = this._terminal._core._coreBrowserService.window;
+    if (spec && win.ImageBitmap && spec.orig instanceof ImageBitmap) {
+      spec.orig.close();
+    }
+  }
+
   /**
    * Wipe canvas and images on alternate buffer.
    */
@@ -183,7 +195,7 @@ export class ImageStorage implements IDisposable {
       }
     }
     for (const id of zero) {
-      this._images.delete(id);
+      this._delImg(id);
     }
     // mark canvas to be wiped on next render
     this._needsFullClear = true;
@@ -273,7 +285,7 @@ export class ImageStorage implements IDisposable {
       }
     }
     for (const id of zero) {
-      this._images.delete(id);
+      this._delImg(id);
     }
 
     // eviction marker:
@@ -282,7 +294,7 @@ export class ImageStorage implements IDisposable {
     endMarker?.onDispose(() => {
       const spec = this._images.get(imageId);
       if (spec) {
-        this._images.delete(imageId);
+        this._delImg(imageId);
       }
     });
 
@@ -458,7 +470,14 @@ export class ImageStorage implements IDisposable {
     if (line && line.getBg(x) & BgFlags.HAS_EXTENDED) {
       const e: IExtendedAttrsImage = line._extendedAttrs[x] || EMPTY_ATTRS;
       if (e.imageId && e.imageId !== -1) {
-        return this._images.get(e.imageId)?.orig;
+        const orig = this._images.get(e.imageId)?.orig;
+        const win = this._terminal._core._coreBrowserService.window;
+        if (win.ImageBitmap && orig instanceof ImageBitmap) {
+          const canvas = ImageRenderer.createCanvas(win, orig.width, orig.height);
+          canvas.getContext('2d')?.drawImage(orig, 0, 0, orig.width, orig.height);
+          return canvas;
+        }
+        return orig as HTMLCanvasElement;
       }
     }
   }
@@ -493,7 +512,7 @@ export class ImageStorage implements IDisposable {
           current -= spec.actual.width * spec.actual.height;
         }
         spec.marker?.dispose();
-        this._images.delete(this._lowestId);
+        this._delImg(this._lowestId);
       }
     }
     return used - current;
@@ -561,7 +580,7 @@ export class ImageStorage implements IDisposable {
       }
     }
     for (const id of zero) {
-      this._images.delete(id);
+      this._delImg(id);
     }
   }
 }

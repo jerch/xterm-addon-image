@@ -8,7 +8,7 @@ import { IDisposable, IMarker, Terminal } from 'xterm';
 // private imports from base repo we build against
 import { Attributes, BgFlags, Content, ExtFlags, UnderlineStyle } from 'common/buffer/Constants';
 import type { AttributeData } from 'common/buffer/AttributeData';
-import type { IParams, IDcsHandler, IEscapeSequenceParser } from 'common/parser/Types';
+import type { IParams, IDcsHandler, IOscHandler, IEscapeSequenceParser } from 'common/parser/Types';
 import type { IBufferLine, IExtendedAttrs, IInputHandler } from 'common/Types';
 import type { ITerminal, ReadonlyColorSet } from 'browser/Types';
 import type { IRenderDimensions } from 'browser/renderer/shared/Types';
@@ -22,7 +22,7 @@ export const enum Cell {
 }
 
 // export some privates for local usage
-export { AttributeData, IParams, IDcsHandler, BgFlags, IRenderDimensions, IRenderService, Content, ExtFlags, Attributes, UnderlineStyle, ReadonlyColorSet };
+export { AttributeData, IParams, IDcsHandler, IOscHandler, BgFlags, IRenderDimensions, IRenderService, Content, ExtFlags, Attributes, UnderlineStyle, ReadonlyColorSet };
 
 /**
  * Plugin ctor options.
@@ -36,6 +36,8 @@ export interface IImageAddonOptions {
   sixelScrolling: boolean;
   sixelPaletteLimit: number;
   sixelSizeLimit: number;
+  iipSupport: boolean;
+  iipSizeLimit: number;
 }
 
 export interface IResetHandler {
@@ -96,9 +98,9 @@ export interface ICellSize {
 }
 
 export interface IImageSpec {
-  orig: HTMLCanvasElement | undefined;
+  orig: HTMLCanvasElement | ImageBitmap | undefined;
   origCellSize: ICellSize;
-  actual: HTMLCanvasElement | undefined;
+  actual: HTMLCanvasElement | ImageBitmap | undefined;
   actualCellSize: ICellSize;
   marker: IMarker | undefined;
   tileCount: number;

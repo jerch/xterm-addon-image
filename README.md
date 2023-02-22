@@ -39,12 +39,18 @@ The addon sources and npm package definition reside under `addons/xterm-addon-im
 import { Terminal } from 'xterm';
 import { ImageAddon, IImageAddonOptions } from 'xterm-addon-image';
 
-const WORKER_PATH = '/path/to/xterm-addon-image-worker.js';
-
-// customize as needed
+// customize as needed (showing addon defaults)
 const customSettings: IImageAddonOptions = {
-  sixelSupport: true,
-  ...
+  enableSizeReports: true,    // whether to enable CSI t reports (see below)
+  pixelLimit: 16777216,       // max. pixel size of a single image
+  sixelSupport: true,         // enable sixel support
+  sixelScrolling: true,       // whether to scroll on image output
+  sixelPaletteLimit: 256,     // initial sixel palette size
+  sixelSizeLimit: 25000000,   // size limit of a single sixel sequence
+  storageLimit: 128,          // FIFO storage limit in MB
+  showPlaceholder: true,      // whether to show a placeholder for evicted images
+  iipSupport: true,           // enable iTerm IIP support
+  iipSizeLimit: 20000000      // size limit of a single IIP sequence
 }
 
 // initialization
@@ -107,6 +113,23 @@ terminal.loadAddon(imageAddon);
   If raster attributes were found in the SIXEL data (level 2), the image will always be truncated to the given height/width extend. We deviate here from the specification on purpose, as it allows several processing optimizations. For level 1 SIXEL data without any raster attributes the image can freely grow in width and height up to the last data byte, which has a much higher processing penalty. In general encoding libraries should not create level 1 data anymore and should not produce pixel information beyond the announced height/width extend. Both is discouraged by the >30 years old specification.
 
   Currently the SIXEL implementation of the addon does not take custom pixel sizes into account, a SIXEL pixel will map 1:1 to a screen pixel.
+
+- **IIP Support (iTerm's Inline Image Protocol)**  
+  Set by default, change it with `{iipSupport: true}`.
+
+  The IIP implementation has the following features / restrictions (sequence will silently fail for unmet conditions):
+  - Supported formats: PNG, JPEG and GIF
+  - No animation support.
+  - Image type hinting is not supported (always deducted from data header).
+  - File download is not supported.
+  - Filename gets parsed but not used.
+  - Strict base64 handling as of RFC4648 §4 (standard alphabet, optional padding, no separator bytes allowed).
+  - Payload size may not exceed CEIL(sizeParameter * 4 / 3).
+  - Image scaling beyond terminal viewport size is allowed (e.g. `width=200%`).
+  - Image pixel size is restricted by `pixelLimit` (pre- and post resizing).
+  - Size parameter is restricted by `iipSizeLimit`.
+  - Cursor positioning behaves the same as for sixel (see above).
+
 
 ### Storage and Drawing Settings
 
@@ -206,7 +229,8 @@ _How can I adjust the memory usage?_
 
 ### Status
 
-Sixel support and image handling in xterm.js is considered beta quality.
+- Sixel support and image handling in xterm.js is considered beta quality.
+- IIP support is in alpha stage. Please file a bug for any awkwardities.
 
 
 ### Changelog

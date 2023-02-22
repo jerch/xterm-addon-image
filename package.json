@@ -7,7 +7,7 @@
   "repository": "https://github.com/xtermjs/xterm.js",
   "license": "MIT",
   "scripts": {
-    "build": "../../node_modules/.bin/tsc -p src",
+    "build": "../../node_modules/.bin/tsc -p src && node_modules/.bin/inwasm out/base64.wasm.js",
     "prepackage": "npm run build",
     "package": "../../node_modules/.bin/webpack",
     "prepublishOnly": "npm run package"
@@ -16,7 +16,7 @@
     "xterm": "~5.1.0"
   },
   "devDependencies": {
-    "png-ts": "^0.0.3",
+    "inwasm": "^0.0.5",
     "sixel": "^0.16.0"
   }
 }

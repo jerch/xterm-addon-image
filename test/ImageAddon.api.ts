@@ -9,7 +9,6 @@ import { Browser, Page } from 'playwright';
 import { IImageAddonOptions } from '../src/Types';
 import { FINALIZER, introducer, sixelEncode } from 'sixel';
 import { readFileSync } from 'fs';
-import PNG from 'png-ts';
 
 const APP = 'http://127.0.0.1:3001/test';
 
@@ -40,15 +39,14 @@ interface IDimensions {
 
 // image: 640 x 80, 512 color
 const TESTDATA: ITestData = (() => {
-  const pngImage = PNG.load(readFileSync('./addons/xterm-addon-image/fixture/palette.png'));
-  const data8 = pngImage.decode();
+  const data8 = readFileSync('./addons/xterm-addon-image/fixture/palette.blob');
   const data32 = new Uint32Array(data8.buffer);
   const palette = new Set<number>();
   for (let i = 0; i < data32.length; ++i) palette.add(data32[i]);
-  const sixel = sixelEncode(data8, pngImage.width, pngImage.height, [...palette]);
+  const sixel = sixelEncode(data8, 640, 80, [...palette]);
   return {
-    width: pngImage.width,
-    height: pngImage.height,
+    width: 640,
+    height: 80,
     bytes: data8,
     palette: [...palette],
     sixel
@@ -58,6 +56,14 @@ const SIXEL_SEQ_0 = introducer(0) + TESTDATA.sixel + FINALIZER;
 // const SIXEL_SEQ_1 = introducer(1) + TESTDATA.sixel + FINALIZER;
 // const SIXEL_SEQ_2 = introducer(2) + TESTDATA.sixel + FINALIZER;
 
+// NOTE: the data is loaded as string for easier transport through playwright
+const TESTDATA_IIP: [string, [number, number]][] = [
+  [readFileSync('./addons/xterm-addon-image/fixture/iip/palette.iip', { encoding: 'utf-8' }), [640, 80]],
+  [readFileSync('./addons/xterm-addon-image/fixture/iip/spinfox.iip', { encoding: 'utf-8' }), [148, 148]],
+  [readFileSync('./addons/xterm-addon-image/fixture/iip/w3c_gif.iip', { encoding: 'utf-8' }), [72, 48]],
+  [readFileSync('./addons/xterm-addon-image/fixture/iip/w3c_jpg.iip', { encoding: 'utf-8' }), [72, 48]],
+  [readFileSync('./addons/xterm-addon-image/fixture/iip/w3c_png.iip', { encoding: 'utf-8' }), [72, 48]]
+];
 
 describe.only('ImageAddon', () => {
   before(async () => {
@@ -115,7 +121,9 @@ describe.only('ImageAddon', () => {
         sixelPaletteLimit: 512,  // set to 512 to get example image working
         sixelSizeLimit: 25000000,
         storageLimit: 128,
-        showPlaceholder: true
+        showPlaceholder: true,
+        iipSupport: true,
+        iipSizeLimit: 20000000
       };
       assert.deepEqual(await page.evaluate(`window.imageAddon._opts`), DEFAULT_OPTIONS);
     });
@@ -128,7 +136,9 @@ describe.only('ImageAddon', () => {
         sixelPaletteLimit: 1024,
         sixelSizeLimit: 1000,
         storageLimit: 10,
-        showPlaceholder: false
+        showPlaceholder: false,
+        iipSupport: false,
+        iipSizeLimit: 1000
       };
       await page.evaluate(opts => {
         (window as any).imageAddonCustom = new ImageAddon(opts.opts);
@@ -239,6 +249,29 @@ describe.only('ImageAddon', () => {
       assert.equal(newUsage, usage);
     });
   });
+
+  describe('IIP support - testimages', () => {
+    it('palette.png', async () => {
+      await writeToTerminal(TESTDATA_IIP[0][0]);
+      assert.deepEqual(await getOrigSize(1), TESTDATA_IIP[0][1]);
+    });
+    it('spinfox.png', async () => {
+      await writeToTerminal(TESTDATA_IIP[1][0]);
+      assert.deepEqual(await getOrigSize(1), TESTDATA_IIP[1][1]);
+    });
+    it('w3c gif', async () => {
+      await writeToTerminal(TESTDATA_IIP[2][0]);
+      assert.deepEqual(await getOrigSize(1), TESTDATA_IIP[2][1]);
+    });
+    it('w3c jpeg', async () => {
+      await writeToTerminal(TESTDATA_IIP[3][0]);
+      assert.deepEqual(await getOrigSize(1), TESTDATA_IIP[3][1]);
+    });
+    it('w3c png', async () => {
+      await writeToTerminal(TESTDATA_IIP[4][0]);
+      assert.deepEqual(await getOrigSize(1), TESTDATA_IIP[4][1]);
+    });
+  });
 });
 
 /**
@@ -268,4 +301,11 @@ async function getScrollbackPlusRows(): Promise<number> {
 
 async function writeToTerminal(d: string): Promise<any> {
   return page.evaluate(data => new Promise(res => (window as any).term.write(data, res)), d);
+}
+
+async function getOrigSize(id: number): Promise<[number, number]> {
+  return page.evaluate<any>(`[
+    window.imageAddon._storage._images.get(${id}).orig.width,
+    window.imageAddon._storage._images.get(${id}).orig.height
+  ]`);
 }

@@ -3,6 +3,7 @@
  * @license MIT
  */
 
+import { IIPHandler } from './IIPHandler';
 import { ITerminalAddon, IDisposable } from 'xterm';
 import { ImageRenderer } from './ImageRenderer';
 import { ImageStorage, CELL_SIZE_DEFAULT } from './ImageStorage';
@@ -19,7 +20,9 @@ const DEFAULT_OPTIONS: IImageAddonOptions = {
   sixelPaletteLimit: 256,
   sixelSizeLimit: 25000000,
   storageLimit: 128,
-  showPlaceholder: true
+  showPlaceholder: true,
+  iipSupport: true,
+  iipSizeLimit: 20000000
 };
 
 // max palette size supported by the sixel lib (compile time setting)
@@ -130,6 +133,15 @@ export class ImageAddon implements ITerminalAddon {
       this._handlers.set('sixel', sixelHandler);
       this._disposeLater(
         terminal._core._inputHandler._parser.registerDcsHandler({ final: 'q' }, sixelHandler)
+      );
+    }
+
+    // iTerm IIP handler
+    if (this._opts.iipSupport) {
+      const iipHandler = new IIPHandler(this._opts, this._renderer!, this._storage!, terminal);
+      this._handlers.set('iip', iipHandler);
+      this._disposeLater(
+        terminal._core._inputHandler._parser.registerOscHandler(1337, iipHandler)
       );
     }
   }

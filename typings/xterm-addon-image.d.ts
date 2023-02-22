@@ -67,6 +67,15 @@ declare module 'xterm-addon-image' {
     sixelPaletteLimit?: number;
     /** SIXEL image size limit in bytes (default 25000000 bytes). */
     sixelSizeLimit?: number;
+
+    /**
+     * IIP settings (iTerm image protocol)
+     */
+
+    /** Whether iTerm image protocol style is enabled (default is true). */
+    iipSupport?: boolean;
+    /** IIP sequence size limit (default 20000000 bytes). */
+    iipSizeLimit?: number;
   }
 
   export class ImageAddon implements ITerminalAddon {
