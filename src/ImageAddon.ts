@@ -314,4 +314,109 @@ export class ImageAddon implements ITerminalAddon {
     this._report(`\x1b[?${params[0]};${GaStatus.ITEM_ERROR}S`);
     return true;
   }
+
+  /**
+   * demo hack for complex terminal buffer serialization
+   */
+  private _parts: string[] = [''];
+
+  // example for text/FG/BG serializer
+  private _serText(num: number): number[] {
+    // FIXME: no FG/BG attributes atm
+    const buffer = this._terminal!._core.buffer;
+    const line = buffer.lines.get(num);
+    if (!line) return [];
+    const cell = this._terminal?.buffer.active.getNullCell()!;
+    const cols = this._terminal!.cols;
+    const res: number[] = [];
+    let partPos = 0;
+    let content = '';
+    for (let col = 0; col < cols; ++col) {
+      line?.loadCell(col, cell as any);
+      if (!cell.getChars()) {
+        partPos = 0;
+        if (content) this._parts.push(content);
+        content = '';
+      } else {
+        partPos = this._parts.length;
+        content += cell.getChars();
+      }
+      res.push(partPos);
+    }
+    if (content) this._parts.push(content);
+    return res;
+  }
+
+  private _encodeTile(canvas: HTMLCanvasElement): string {
+    // use IIP for encoding for now
+    const cw = this._renderer!.dimensions?.css.cell.width || CELL_SIZE_DEFAULT.width;
+    const ch = this._renderer!.dimensions?.css.cell.height || CELL_SIZE_DEFAULT.height;
+    if (canvas.width < cw || canvas.height < ch) {
+      const newCanvas = ImageRenderer.createCanvas(window, cw, ch);
+      newCanvas.getContext('2d')?.drawImage(canvas, 0, 0);
+      canvas = newCanvas;
+    }
+    const data = canvas.toDataURL('image/png').slice(22);
+    const s = `\x1b]1337;File=inline=1;width=1;height=1;preserveAspectRatio=0;size=${atob(data).length}:${data}`;
+    return s + '\x1b[C';
+  }
+
+  // example for image serializer
+  private _serImages(num: number): number[] {
+    const res: number[] = [];
+    const cols = this._terminal!.cols;
+    const buffer = this._terminal!._core.buffer;
+    const line = buffer.lines.get(num);
+    if (!line) return [];
+
+    for (let col = 0; col < cols; ++col) {
+      // for simplicity only single cell tile encoding atm
+      const canvas = this.extractTileAtBufferCell(col, num);
+      if (!canvas) {
+        res.push(0);
+        continue;
+      }
+      res.push(this._parts.length);
+      this._parts.push(this._encodeTile(canvas));
+    }
+    return res;
+  }
+
+  public serialize(start: number, end: number): string[] {
+    const lines: string[] = [];
+    const cols = this._terminal!.cols;
+    for (let row = start; row < end; ++row) {
+      const indices: number[][] = [];
+      // FIXME: turn next 2 invocations into registered event handlers
+      indices.push(this._serText(row));
+      indices.push(this._serImages(row));
+
+      //console.log('parts', this._parts, indices);
+
+      // fuse logic
+      const entries: string[] = [];
+      let cursorAdjust = 0;
+      for (let i = 0; i < cols; ++i) {
+        let entry = '';
+        let handled = 0;
+        for (let k = 0; k < indices.length; ++k) {
+          handled |= indices[k][i];
+          if (this._parts[indices[k][i]]) {
+            entry += this._parts[indices[k][i]];
+            this._parts[indices[k][i]] = '';
+          }
+        }
+        if (handled && cursorAdjust) {
+          entries.push(`\x1b[${cursorAdjust}C`);
+          cursorAdjust = 0;
+        } else if (!handled) {
+          cursorAdjust++;
+        }
+        entries.push(entry);
+      }
+      lines.push(entries.join(''));
+      this._parts.length = 1;
+    }
+    return lines;
+  }
 }
