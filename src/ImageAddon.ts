@@ -348,9 +348,17 @@ export class ImageAddon implements ITerminalAddon {
   }
 
   private _encodeTile(canvas: HTMLCanvasElement): string {
+    // repack cell tile into a proper cell covering canvas if it is too small
+    const cw = this._renderer!.dimensions?.css.cell.width || CELL_SIZE_DEFAULT.width;
+    const ch = this._renderer!.dimensions?.css.cell.height || CELL_SIZE_DEFAULT.height;
+    if (canvas.width < cw || canvas.height < ch) {
+      const newCanvas = ImageRenderer.createCanvas(window, Math.ceil(cw), Math.ceil(ch));
+      newCanvas.getContext('2d')?.drawImage(canvas, 0, 0);
+      canvas = newCanvas;
+    }
     const data = canvas.toDataURL('image/png').slice(22);
-    const s = `\x1b]1337;File=inline=1;width=1;height=1;preserveAspectRatio=0;size=${atob(data).length}:${data}`;
-    return s + '\x1b[C';
+    const iipSeq = `\x1b]1337;File=inline=1;width=1;height=1;preserveAspectRatio=0;size=${atob(data).length}:${data}`;
+    return iipSeq + '\x1b[C'; // + cursor advance by one
   }
 
   // example for image serializer
