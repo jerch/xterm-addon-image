@@ -318,102 +318,24 @@ export class ImageAddon implements ITerminalAddon {
   /**
    * demo hack for complex terminal buffer serialization
    */
-  private _parts: string[] = [''];
 
-  // example for text/FG/BG serializer
-  private _serText(num: number): number[] {
-    // FIXME: no FG/BG attributes atm
-    const buffer = this._terminal!._core.buffer;
-    const line = buffer.lines.get(num);
-    if (!line) return [];
-    const cell = this._terminal?.buffer.active.getNullCell()!;
-    const cols = this._terminal!.cols;
-    const res: number[] = [];
-    let partPos = 0;
-    let content = '';
-    for (let col = 0; col < cols; ++col) {
-      line?.loadCell(col, cell as any);
-      if (!cell.getChars()) {
-        partPos = 0;
-        if (content) this._parts.push(content);
-        content = '';
-      } else {
-        partPos = this._parts.length;
-        content += cell.getChars();
-      }
-      res.push(partPos);
-    }
-    if (content) this._parts.push(content);
-    return res;
-  }
-
-  private _encodeTile(canvas: HTMLCanvasElement): string {
-    // repack cell tile into a proper cell covering canvas if it is too small
-    const cw = this._renderer!.dimensions?.css.cell.width || CELL_SIZE_DEFAULT.width;
-    const ch = this._renderer!.dimensions?.css.cell.height || CELL_SIZE_DEFAULT.height;
-    if (canvas.width < cw || canvas.height < ch) {
-      const newCanvas = ImageRenderer.createCanvas(window, Math.ceil(cw), Math.ceil(ch));
-      newCanvas.getContext('2d')?.drawImage(canvas, 0, 0);
-      canvas = newCanvas;
-    }
+  public serializeLine(num: number): string {
+    const canvas = this._storage!.extractLineCanvas(num);
+    if (!canvas) return '';
+    const w = this._terminal!.cols;
     const data = canvas.toDataURL('image/png').slice(22);
-    const iipSeq = `\x1b]1337;File=inline=1;width=1;height=1;preserveAspectRatio=0;size=${atob(data).length}:${data}`;
-    return iipSeq + '\x1b[C'; // + cursor advance by one
-  }
-
-  // example for image serializer
-  private _serImages(num: number): number[] {
-    const res: number[] = [];
-    const cols = this._terminal!.cols;
-    const buffer = this._terminal!._core.buffer;
-    const line = buffer.lines.get(num);
-    if (!line) return [];
-
-    for (let col = 0; col < cols; ++col) {
-      // for simplicity only single cell tile encoding atm
-      const canvas = this.extractTileAtBufferCell(col, num);
-      if (!canvas || !canvas.width || !canvas.height) {
-        res.push(0);
-        continue;
-      }
-      res.push(this._parts.length);
-      this._parts.push(this._encodeTile(canvas));
-    }
-    return res;
+    const iipSeq = `\x1b]1337;File=inline=1;width=${w};height=1;preserveAspectRatio=0;size=${atob(data).length}:${data}`;
+    return '\r' + iipSeq + `\x1b[${w}C`; // CR + IIP sequence + cursor advance by line width
   }
 
   public serialize(start: number, end: number): string[] {
     const lines: string[] = [];
-    const cols = this._terminal!.cols;
+    const buffer = this._terminal!._core.buffer;
     for (let row = start; row < end; ++row) {
-      const indices: number[][] = [];
-      // FIXME: turn next 2 invocations into registered event handlers
-      indices.push(this._serText(row));
-      indices.push(this._serImages(row));
-
-      // fuse logic
-      const entries: string[] = [];
-      let cursorAdjust = 0;
-      for (let i = 0; i < cols; ++i) {
-        let entry = '';
-        let handled = 0;
-        for (let k = 0; k < indices.length; ++k) {
-          handled |= indices[k][i];
-          if (this._parts[indices[k][i]]) {
-            entry += this._parts[indices[k][i]];
-            this._parts[indices[k][i]] = '';
-          }
-        }
-        if (handled && cursorAdjust) {
-          entries.push(`\x1b[${cursorAdjust}C`);
-          cursorAdjust = 0;
-        } else if (!handled) {
-          cursorAdjust++;
-        }
-        entries.push(entry);
-      }
-      lines.push(entries.join(''));
-      this._parts.length = 1;
+      const line = buffer.lines.get(row);
+      if (!line) break;
+      // FIXME: hook into serialize addon instead of translateToString
+      lines.push(line.translateToString(true) + this.serializeLine(row));
     }
     return lines;
   }

@@ -484,6 +484,57 @@ export class ImageStorage implements IDisposable {
     }
   }
 
+  // TODO: cleanup, merge with render? Extend it to an x*y dim extraction method?
+  public extractLineCanvas(num: number): HTMLCanvasElement | undefined {
+    if (!this._images.size) return;
+
+    const buffer = this._terminal._core.buffer;
+    const cols = this._terminal._core.cols;
+    const line = buffer.lines.get(num) as IBufferLineExt;
+    if (!line) return;
+
+    const cw = this._renderer.dimensions?.css.cell.width || CELL_SIZE_DEFAULT.width;
+    const ch = this._renderer.dimensions?.css.cell.height || CELL_SIZE_DEFAULT.height;
+    const width = this._renderer.dimensions?.css.canvas.width || cw * this._terminal.cols;
+
+    const canvas = ImageRenderer.createCanvas(window, width, Math.ceil(ch));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let hasTiles = false;
+
+    for (let col = 0; col < cols; ++col) {
+      if (line.getBg(col) & BgFlags.HAS_EXTENDED) {
+        let e: IExtendedAttrsImage = line._extendedAttrs[col] || EMPTY_ATTRS;
+        const imageId = e.imageId;
+        if (imageId === undefined || imageId === -1) {
+          continue;
+        }
+        const imgSpec = this._images.get(imageId);
+        if (e.tileId !== -1) {
+          const startTile = e.tileId;
+          const startCol = col;
+          let count = 1;
+          while (
+            ++col < cols
+            && (line.getBg(col) & BgFlags.HAS_EXTENDED)
+            && (e = line._extendedAttrs[col] || EMPTY_ATTRS)
+            && (e.imageId === imageId)
+            && (e.tileId === startTile + count)
+          ) {
+            count++;
+          }
+          col--;
+          if (imgSpec && imgSpec.actual) {
+            this._renderer.lineDraw(ctx, imgSpec, startTile, startCol, num, count);
+            hasTiles = true;
+          }
+        }
+      }
+    }
+    if (hasTiles) return canvas;
+  }
+
   /**
    * Extract active single tile at buffer position.
    */

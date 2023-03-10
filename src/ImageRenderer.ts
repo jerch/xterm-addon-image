@@ -187,6 +187,39 @@ export class ImageRenderer implements IDisposable {
     );
   }
 
+  // TODO: cleanup, maybe merge with draw?
+  public lineDraw(ctx: CanvasRenderingContext2D, imgSpec: IImageSpec, tileId: number, col: number, row: number, count: number = 1): void {
+    const { width, height } = this.cellSize;
+
+    // Don't try to draw anything, if we cannot get valid renderer metrics.
+    if (width === -1 || height === -1) {
+      return;
+    }
+
+    this._rescaleImage(imgSpec, width, height);
+    const img = imgSpec.actual!;
+    const cols = Math.ceil(img.width / width);
+
+    const sx = (tileId % cols) * width;
+    const sy = Math.floor(tileId / cols) * height;
+    const dx = col * width;
+    // const dy = row * height;
+
+    // safari bug: never access image source out of bounds
+    const finalWidth = count * width + sx > img.width ? img.width - sx : count * width;
+    const finalHeight = sy + height > img.height ? img.height - sy : height;
+
+    // Floor all pixel offsets to get stable tile mapping without any overflows.
+    // Note: For not pixel perfect aligned cells like in the DOM renderer
+    // this will move a tile slightly to the top/left (subpixel range, thus ignore it).
+    // FIX #34: avoid striping on displays with pixelDeviceRatio != 1 by ceiling height and width
+    ctx.drawImage(
+      img,
+      Math.floor(sx), Math.floor(sy), Math.ceil(finalWidth), Math.ceil(finalHeight),
+      Math.floor(dx), 0, Math.ceil(finalWidth), Math.ceil(finalHeight)
+    );
+  }
+
   /**
    * Extract a single tile from an image.
    */
