@@ -348,14 +348,6 @@ export class ImageAddon implements ITerminalAddon {
   }
 
   private _encodeTile(canvas: HTMLCanvasElement): string {
-    // use IIP for encoding for now
-    const cw = this._renderer!.dimensions?.css.cell.width || CELL_SIZE_DEFAULT.width;
-    const ch = this._renderer!.dimensions?.css.cell.height || CELL_SIZE_DEFAULT.height;
-    if (canvas.width < cw || canvas.height < ch) {
-      const newCanvas = ImageRenderer.createCanvas(window, cw, ch);
-      newCanvas.getContext('2d')?.drawImage(canvas, 0, 0);
-      canvas = newCanvas;
-    }
     const data = canvas.toDataURL('image/png').slice(22);
     const s = `\x1b]1337;File=inline=1;width=1;height=1;preserveAspectRatio=0;size=${atob(data).length}:${data}`;
     return s + '\x1b[C';
@@ -372,7 +364,7 @@ export class ImageAddon implements ITerminalAddon {
     for (let col = 0; col < cols; ++col) {
       // for simplicity only single cell tile encoding atm
       const canvas = this.extractTileAtBufferCell(col, num);
-      if (!canvas) {
+      if (!canvas || !canvas.width || !canvas.height) {
         res.push(0);
         continue;
       }
@@ -390,8 +382,6 @@ export class ImageAddon implements ITerminalAddon {
       // FIXME: turn next 2 invocations into registered event handlers
       indices.push(this._serText(row));
       indices.push(this._serImages(row));
-
-      //console.log('parts', this._parts, indices);
 
       // fuse logic
       const entries: string[] = [];

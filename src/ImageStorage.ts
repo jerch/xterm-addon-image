@@ -232,8 +232,10 @@ export class ImageStorage implements IDisposable {
     if (cellSize.width === -1 || cellSize.height === -1) {
       cellSize = CELL_SIZE_DEFAULT;
     }
+    // cell coverage - ceil all to cover overprint pixels as well
+    // y-direction: height-1 to allow 1px overprint w'o cursor line progression
     const cols = Math.ceil(img.width / cellSize.width);
-    const rows = Math.ceil(img.height / cellSize.height);
+    const rows = Math.ceil((img.height - 1) / cellSize.height);
 
     const imageId = ++this._lastId;
 

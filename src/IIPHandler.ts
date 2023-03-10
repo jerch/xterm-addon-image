@@ -95,7 +95,8 @@ export class IIPHandler implements IOscHandler, IResetHandler {
           w = this._metrics.width;
           h = this._metrics.height;
           if (cond = w && h && w * h < this._opts.pixelLimit) {
-            [w, h] = this._resize(w, h).map(Math.floor);
+            // ceil here to allow a 1px overprint (avoid stitching artefacts)
+            [w, h] = this._resize(w, h).map(Math.ceil);
             cond = w && h && w * h < this._opts.pixelLimit;
           }
         }
