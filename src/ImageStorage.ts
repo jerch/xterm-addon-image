@@ -223,7 +223,7 @@ export class ImageStorage implements IDisposable {
   /**
    * Method to add an image to the storage.
    */
-  public addImage(img: HTMLCanvasElement): void {
+  public addImage(img: HTMLCanvasElement | ImageBitmap): void {
     // never allow storage to exceed memory limit
     this._evictOldest(img.width * img.height);
 
