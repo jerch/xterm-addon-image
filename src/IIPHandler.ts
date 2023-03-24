@@ -92,7 +92,6 @@ export class IIPHandler implements IOscHandler, IResetHandler {
     let cond: number | boolean = true;
     if (cond = success) {
       if (cond = !this._dec.end()) {
-        //console.log(this._dec.data8.length);
         this._metrics = imageType(this._dec.data8);
         if (cond = this._metrics.mime !== 'unsupported') {
           w = this._metrics.width;
@@ -123,7 +122,7 @@ export class IIPHandler implements IOscHandler, IResetHandler {
       blob = new Blob([this._dec.data8], { type: this._metrics.mime });
     }
 
-    //const blob = new Blob([this._dec.data8], { type: this._metrics.mime });
+    // const blob = new Blob([this._dec.data8], { type: this._metrics.mime });
     this._dec.release();
 
     const win = this._coreTerminal._core._coreBrowserService.window;
@@ -144,14 +143,14 @@ export class IIPHandler implements IOscHandler, IResetHandler {
           // happens from corrupt data (onload never gets fired)
           setTimeout(() => r(true), 1000);
         });
-      } else {
-        const c1 = ImageRenderer.createCanvas(win, this._metrics.width, this._metrics.height);
-        c1.getContext('2d')?.putImageData(blob, 0, 0);
-        const c2 = ImageRenderer.createCanvas(win, w, h);
-        c2.getContext('2d')?.drawImage(c1, 0, 0, this._metrics.width, this._metrics.height, 0, 0, w, h);
-        this._storage.addImage(c2);
-        return true;
       }
+      // qoi path
+      const c1 = ImageRenderer.createCanvas(win, this._metrics.width, this._metrics.height);
+      c1.getContext('2d')?.putImageData(blob, 0, 0);
+      const c2 = ImageRenderer.createCanvas(win, w, h);
+      c2.getContext('2d')?.drawImage(c1, 0, 0, this._metrics.width, this._metrics.height, 0, 0, w, h);
+      this._storage.addImage(c2);
+      return true;
     }
     return win.createImageBitmap(blob, { resizeWidth: w, resizeHeight: h })
       .then(bm => {
