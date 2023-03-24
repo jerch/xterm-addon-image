@@ -51,7 +51,7 @@ export function imageType(d: Uint8Array): IMetrics {
     };
   }
   // QOI: qoif
-  if (d32[0] == 0x66696F71) {
+  if (d32[0] === 0x66696F71) {
     return {
       mime: 'image/qoi',
       width: d[4] << 24 | d[5] << 16 | d[6] << 8 | d[7],

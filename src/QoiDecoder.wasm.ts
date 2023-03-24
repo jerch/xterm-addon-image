@@ -113,19 +113,19 @@ export class QoiDecoder {
      * To save some memory we dont reserve full memory for decoded + encoded,
      * but place encoded at the end of decoded plus 50% security distance
      * to avoid reads before writes positions:
-     * 
+     *
      * encoded < decoded (good compression)
      *    enc                                              ####################
      *    dec                 #######################################
      *                        ^                            ^
      *                        DST_P                        CHUNK_P
-     * 
+     *
      * encoded > decoded (degenerated compression, should not happen)
      *    enc                           ##############################
      *    dec                 ####################
      *                        ^         ^
      *                        DST_P     CHUNK_P
-     * 
+     *
      * There is still a chance for overlapping r/w positions in case the compressed
      * data has very different pixel progression, yet the 50% security distance
      * should deal with that, as QOI will bloat data by 25% at max (RGB -> OP byte + RGB).
@@ -143,9 +143,9 @@ export class QoiDecoder {
       this._d = new Uint8Array(this._mem.buffer);
     }
     // put src data at the end of memory, also align to 256
-    const chunk_p = (this._mem.buffer.byteLength - dl) & ~0xFF;
-    this._d.set(d, chunk_p);
-    this._inst.exports.dec(chunk_p, dl, pixels);
+    const chunkP = (this._mem.buffer.byteLength - dl) & ~0xFF;
+    this._d.set(d, chunkP);
+    this._inst.exports.dec(chunkP, dl, pixels);
     return this._d.subarray(DST_P, DST_P + ib);
   }
 
