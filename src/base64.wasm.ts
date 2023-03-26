@@ -24,8 +24,8 @@ const enum P32 {
 /**
  * wasm base64 decoder.
  */
-const wasmDecode = InWasm({
-  name: 'decode',
+const b64Decode = InWasm({
+  name: 'b64decode',
   type: OutputType.INSTANCE,
   mode: OutputMode.SYNC,
   srctype: 'Clang-C',
@@ -254,7 +254,7 @@ const wasmDecode = InWasm({
 
 // FIXME: currently broken in inwasm
 type ExtractDefinition<Type> = Type extends () => IWasmInstance<infer X> ? X : never;
-type DecodeDefinition = ExtractDefinition<typeof wasmDecode>;
+type DecodeDefinition = ExtractDefinition<typeof b64Decode>;
 
 // base64 map
 const MAP = new Uint8Array(
@@ -328,7 +328,7 @@ export class Base64Decoder {
     const bytes = (Math.ceil(size / 3) + P32.STATE_DATA) * 4;
     if (!this._inst) {
       this._mem = new WebAssembly.Memory({ initial: Math.ceil(bytes / 65536) });
-      this._inst = wasmDecode({ env: { memory: this._mem } });
+      this._inst = b64Decode({ env: { memory: this._mem } });
       m = new Uint32Array(this._mem.buffer, 0);
       m.set(D, P32.D0);
       this._d = new Uint8Array(this._mem.buffer, P32.STATE_DATA * 4);
@@ -372,22 +372,12 @@ export class Base64Decoder {
   }
 }
 
-/**
- * Base64 Encoder
- *
- * TODO:
- * - move into separate module
- * - proper encoder interface
- *   - keepSize
- *   - growth logic removing static memory madness
- *   - lazy instance
- * - better throughput with more clever LUT
- * - SIMD worth the hassle?
- * - tests
- */
 
-const wasmEncode = InWasm({
-  name: 'encode',
+
+const DST_P = 1024;
+
+const b64Encode = InWasm({
+  name: 'b64encode',
   type: OutputType.INSTANCE,
   mode: OutputMode.SYNC,
   srctype: 'Clang-C',
@@ -405,7 +395,7 @@ const wasmEncode = InWasm({
     static unsigned char PAD = '=';
 
     void* enc(unsigned char *src, int length) {
-      unsigned char *dst = (unsigned char *) 1024;
+      unsigned char *dst = (unsigned char *) ${DST_P};
 
       int pad = length % 3;
       length -= pad;
@@ -446,13 +436,66 @@ const wasmEncode = InWasm({
     `
 });
 
-const mem = new WebAssembly.Memory({ initial: 3000 });
-const inst = wasmEncode({ env: { memory: mem } });
-const dd = new Uint8Array(mem.buffer);
+type B64Encode = ExtractDefinition<typeof b64Encode>;
 
-export function b64encode(d: Uint8Array): Uint8Array {
-  const chunkP = 150 * 65536;
-  dd.set(d, chunkP);
-  const end = inst.exports.enc(chunkP, d.length);
-  return dd.subarray(1024, end);
+
+
+/**
+ * Base64 Encoder
+ *
+ * Other than the decoder, the encoder does not work with chunkwise loading.
+ * To simulate chunkwise encoding, split the data source in multiples of 3 bytes
+ * and concat the output afterwards.
+ *
+ * The implementation is pretty naive, and the performance with ~870 MB/s not that great.
+ * Similar to the decoder, the throughput could be increased by ~40% with a LUT-based approach
+ * (2x 16bit LUT[4096]), but the nasty LUT construction and 16kB memory overhead are
+ * not justified by such a small gain. If at all, a SIMD version might be the way to go,
+ * once Safari has better SIMD coverage.
+ *
+ * TODO:
+ * - tests
+ * - SIMD version
+ */
+export class Base64Encoder {
+  private _inst!: IWasmInstance<B64Encode>;
+  private _mem!: WebAssembly.Memory;
+  private _d!: Uint8Array;
+
+  constructor(public keepSize: number) {}
+
+  /**
+   * Encode bytes in `d` as base64.
+   * Returns encoded byte array (borrowed).
+   */
+  public encode(d: Uint8Array): Uint8Array {
+    const bytes = Math.ceil(d.length * 1.4) + DST_P;
+    if (!this._inst) {
+      this._mem = new WebAssembly.Memory({ initial: Math.ceil(bytes / 65536) });
+      this._inst = b64Encode({ env: { memory: this._mem } });
+    } else if (this._mem.buffer.byteLength < bytes) {
+      this._mem.grow(Math.ceil((bytes - this._mem.buffer.byteLength) / 65536));
+      this._d = null!;
+    }
+    if (!this._d) {
+      this._d = new Uint8Array(this._mem.buffer);
+    }
+    // put src data at the end of memory, also align to 256
+    const chunkP = (this._mem.buffer.byteLength - d.length) & ~0xFF;
+    this._d.set(d, chunkP);
+    const end = this._inst.exports.enc(chunkP, d.length);
+    return this._d.subarray(DST_P, end);
+  }
+
+  /**
+   * Release memory conditionally based on `keepSize`.
+   * If memory gets released, also the wasm instance will be freed and recreated on next `encode`,
+   * otherwise the instance will be reused.
+   */
+  public release(): void {
+    if (!this._inst) return;
+    if (this._mem.buffer.byteLength > this.keepSize) {
+      this._inst = this._d = this._mem = null!;
+    }
+  }
 }

@@ -1,5 +1,5 @@
 import { ThroughputRuntimeCase, perfContext } from 'xterm-benchmark';
-import { Base64Decoder } from './base64.wasm';
+import { Base64Decoder, Base64Encoder } from './base64.wasm';
 
 // eslint-disable-next-line
 declare const Buffer: any;
@@ -21,6 +21,7 @@ const b4096  = toBytes(d4096);
 const b65536 = toBytes(d65536);
 const b1M    = toBytes(d1M);
 const dec = new Base64Decoder(4000000);
+const enc = new Base64Encoder(4000000);
 
 
 const RUNS = 100;
@@ -74,6 +75,28 @@ perfContext('Base64', () => {
       dec.init(786432);
       dec.put(b1M, 0, b1M.length);
       dec.end();
+      return { payloadSize: b1M.length };
+    }, { repeat: RUNS }).showAverageThroughput();
+  });
+
+  perfContext('Base64Encoder', () => {
+    new ThroughputRuntimeCase('encode - 256', () => {
+      enc.encode(b256);
+      return { payloadSize: b256.length };
+    }, { repeat: RUNS }).showAverageThroughput();
+
+    new ThroughputRuntimeCase('encode - 4096', () => {
+      enc.encode(b4096);
+      return { payloadSize: b4096.length };
+    }, { repeat: RUNS }).showAverageThroughput();
+
+    new ThroughputRuntimeCase('encode - 65536', () => {
+      enc.encode(b65536);
+      return { payloadSize: b65536.length };
+    }, { repeat: RUNS }).showAverageThroughput();
+
+    new ThroughputRuntimeCase('encode - 1048576', () => {
+      enc.encode(b1M);
       return { payloadSize: b1M.length };
     }, { repeat: RUNS }).showAverageThroughput();
   });

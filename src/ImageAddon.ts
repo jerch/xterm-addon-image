@@ -10,13 +10,13 @@ import { ImageStorage, CELL_SIZE_DEFAULT } from './ImageStorage';
 import { SixelHandler } from './SixelHandler';
 import { ITerminalExt, IImageAddonOptions, IResetHandler } from './Types';
 import { QoiEncoder } from './QoiEncoder.wasm';
-import { b64encode } from './base64.wasm';
+import { Base64Encoder } from './base64.wasm';
 
 
 // default values of addon ctor options
 const DEFAULT_OPTIONS: IImageAddonOptions = {
   enableSizeReports: true,
-  pixelLimit: 25000000, // 16777216, // limit to 4096 * 4096 pixels
+  pixelLimit: 16777216, // limit to 4096 * 4096 pixels
   sixelSupport: true,
   sixelScrolling: true,
   sixelPaletteLimit: 256,
@@ -24,7 +24,7 @@ const DEFAULT_OPTIONS: IImageAddonOptions = {
   storageLimit: 128,
   showPlaceholder: true,
   iipSupport: true,
-  iipSizeLimit: 40000000 // 20000000
+  iipSizeLimit: 20000000
 };
 
 // max palette size supported by the sixel lib (compile time setting)
@@ -322,6 +322,7 @@ export class ImageAddon implements ITerminalAddon {
    */
 
   private _td = new TextDecoder('latin1');
+  private _b64enc = new Base64Encoder(4194304);
   public serializeLineQoi(num: number): string {
     const canvas = this._storage!.extractLineCanvas(num);
     if (!canvas) return '';
@@ -331,7 +332,7 @@ export class ImageAddon implements ITerminalAddon {
       canvas.width,
       canvas.height
     );
-    const data = this._td.decode(b64encode(rawData));
+    const data = this._td.decode(this._b64enc.encode(rawData));
     const iipSeq = `\x1b]1337;File=inline=1;width=${w};height=1;preserveAspectRatio=0;size=${rawData.length}:${data}`;
     return '\r' + iipSeq + `\x1b[${w}C`; // CR + IIP sequence + cursor advance by line width
   }
@@ -377,7 +378,7 @@ export class ImageAddon implements ITerminalAddon {
         spec.orig.width,
         spec.orig.height
       );
-      c += this._td.decode(b64encode(data)).length;
+      c += this._td.decode(this._b64enc.encode(data)).length;
     }
     console.log({ runtime: Date.now() - st, size: c });
   }
