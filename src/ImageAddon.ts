@@ -9,12 +9,14 @@ import { ImageRenderer } from './ImageRenderer';
 import { ImageStorage, CELL_SIZE_DEFAULT } from './ImageStorage';
 import { SixelHandler } from './SixelHandler';
 import { ITerminalExt, IImageAddonOptions, IResetHandler } from './Types';
+import { QoiEncoder } from './QoiEncoder.wasm';
+import { b64encode } from './base64.wasm';
 
 
 // default values of addon ctor options
 const DEFAULT_OPTIONS: IImageAddonOptions = {
   enableSizeReports: true,
-  pixelLimit: 16777216, // limit to 4096 * 4096 pixels
+  pixelLimit: 25000000, // 16777216, // limit to 4096 * 4096 pixels
   sixelSupport: true,
   sixelScrolling: true,
   sixelPaletteLimit: 256,
@@ -22,7 +24,7 @@ const DEFAULT_OPTIONS: IImageAddonOptions = {
   storageLimit: 128,
   showPlaceholder: true,
   iipSupport: true,
-  iipSizeLimit: 20000000
+  iipSizeLimit: 40000000 // 20000000
 };
 
 // max palette size supported by the sixel lib (compile time setting)
@@ -319,7 +321,21 @@ export class ImageAddon implements ITerminalAddon {
    * demo hack for complex terminal buffer serialization
    */
 
-  public serializeLine(num: number): string {
+  private _td = new TextDecoder('latin1');
+  public serializeLineQoi(num: number): string {
+    const canvas = this._storage!.extractLineCanvas(num);
+    if (!canvas) return '';
+    const w = this._terminal!.cols;
+    const rawData = this._qoiEnc.encode(
+      canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data,
+      canvas.width,
+      canvas.height
+    );
+    const data = this._td.decode(b64encode(rawData));
+    const iipSeq = `\x1b]1337;File=inline=1;width=${w};height=1;preserveAspectRatio=0;size=${rawData.length}:${data}`;
+    return '\r' + iipSeq + `\x1b[${w}C`; // CR + IIP sequence + cursor advance by line width
+  }
+  public serializeLinePng(num: number): string {
     const canvas = this._storage!.extractLineCanvas(num);
     if (!canvas) return '';
     const w = this._terminal!.cols;
@@ -329,14 +345,55 @@ export class ImageAddon implements ITerminalAddon {
   }
 
   public serialize(start: number, end: number): string[] {
+    const st = Date.now();
     const lines: string[] = [];
     const buffer = this._terminal!._core.buffer;
     for (let row = start; row < end; ++row) {
       const line = buffer.lines.get(row);
       if (!line) break;
       // FIXME: hook into serialize addon instead of translateToString
-      lines.push(line.translateToString(true) + this.serializeLine(row));
+      // lines.push(line.translateToString(true) + this.serializeLinePng(row));
+      lines.push(line.translateToString(true) + this.serializeLineQoi(row));
     }
+    console.log('duration', Date.now()-st);
     return lines;
+  }
+
+  private _hCtx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!;
+  private _qoiEnc = new QoiEncoder(4194304);
+  public sQoi(): void {
+    const st = Date.now();
+    let src: CanvasRenderingContext2D;
+    let c = 0;
+    for (const spec of (this._storage as any)._images.values()) {
+      this._hCtx.canvas.width = spec.orig.width;
+      this._hCtx.canvas.height = spec.orig.height;
+      this._hCtx.drawImage(spec.orig, 0, 0);
+      src = this._hCtx;
+
+      // use custom QOI + base64 encoders
+      const data = this._qoiEnc.encode(
+        src.getImageData(0, 0, spec.orig.width, spec.orig.height).data,
+        spec.orig.width,
+        spec.orig.height
+      );
+      c += this._td.decode(b64encode(data)).length;
+    }
+    console.log({ runtime: Date.now() - st, size: c });
+  }
+  public sPng(): void {
+    const st = Date.now();
+    let src: HTMLCanvasElement;
+    let c = 0;
+    for (const spec of (this._storage as any)._images.values()) {
+      this._hCtx.canvas.width = spec.orig.width;
+      this._hCtx.canvas.height = spec.orig.height;
+      this._hCtx.drawImage(spec.orig, 0, 0);
+      src = this._hCtx.canvas;
+
+      // use browser builtin PNG serialization
+      c += src.toDataURL('image/png').slice(22).length;
+    }
+    console.log({ runtime: Date.now() - st, size: c });
   }
 }

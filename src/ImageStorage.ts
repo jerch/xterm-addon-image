@@ -485,6 +485,7 @@ export class ImageStorage implements IDisposable {
   }
 
   // TODO: cleanup, merge with render? Extend it to an x*y dim extraction method?
+  private _lineCtx = ImageRenderer.createCanvas(window, 0, 0).getContext('2d', { willReadFrequently: true })!;
   public extractLineCanvas(num: number): HTMLCanvasElement | undefined {
     if (!this._images.size) return;
 
@@ -497,9 +498,8 @@ export class ImageStorage implements IDisposable {
     const ch = this._renderer.dimensions?.css.cell.height || CELL_SIZE_DEFAULT.height;
     const width = this._renderer.dimensions?.css.canvas.width || cw * this._terminal.cols;
 
-    const canvas = ImageRenderer.createCanvas(window, width, Math.ceil(ch));
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    this._lineCtx.canvas.width = width;
+    this._lineCtx.canvas.height = Math.ceil(ch);
 
     let hasTiles = false;
 
@@ -526,13 +526,13 @@ export class ImageStorage implements IDisposable {
           }
           col--;
           if (imgSpec && imgSpec.actual) {
-            this._renderer.lineDraw(ctx, imgSpec, startTile, startCol, num, count);
+            this._renderer.lineDraw(this._lineCtx, imgSpec, startTile, startCol, num, count);
             hasTiles = true;
           }
         }
       }
     }
-    if (hasTiles) return canvas;
+    if (hasTiles) return this._lineCtx.canvas;
   }
 
   /**

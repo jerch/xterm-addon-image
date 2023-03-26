@@ -371,3 +371,88 @@ export class Base64Decoder {
     return this._inst ? this._inst.exports.end() : 1;
   }
 }
+
+/**
+ * Base64 Encoder
+ *
+ * TODO:
+ * - move into separate module
+ * - proper encoder interface
+ *   - keepSize
+ *   - growth logic removing static memory madness
+ *   - lazy instance
+ * - better throughput with more clever LUT
+ * - SIMD worth the hassle?
+ * - tests
+ */
+
+const wasmEncode = InWasm({
+  name: 'encode',
+  type: OutputType.INSTANCE,
+  mode: OutputMode.SYNC,
+  srctype: 'Clang-C',
+  imports: {
+    env: { memory: new WebAssembly.Memory({ initial: 1 }) }
+  },
+  exports: {
+    enc: (src: number, length: number) => 0
+  },
+  compile: {
+    switches: ['-Wl,-z,stack-size=0', '-Wl,--stack-first']
+  },
+  code: `
+    static unsigned char AL[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    static unsigned char PAD = '=';
+
+    void* enc(unsigned char *src, int length) {
+      unsigned char *dst = (unsigned char *) 1024;
+
+      int pad = length % 3;
+      length -= pad;
+
+      unsigned char *src_end3 = src + length;
+      unsigned char a, b, c, d;
+      unsigned int accu;
+
+      while (src < src_end3) {
+        accu = src[0] << 16 | src[1] << 8 | src[2];
+        src += 3;
+        a = (accu      ) & 0x3F;
+        b = (accu >> 6 ) & 0x3F;
+        c = (accu >> 12) & 0x3F;
+        d = (accu >> 18) & 0x3F;
+        *dst++ = AL[d];
+        *dst++ = AL[c];
+        *dst++ = AL[b];
+        *dst++ = AL[a];
+      }
+      if (pad == 2) {
+        accu = src[0] << 8 | src[1];
+        accu <<= 2;
+        *dst++ = AL[accu >> 12];
+        *dst++ = AL[(accu >> 6) & 0x3F];
+        *dst++ = AL[accu & 0x3F];
+        *dst++ = PAD;
+      } else if (pad == 1) {
+        accu = src[0];
+        accu <<= 4;
+        *dst++ = AL[accu >> 6];
+        *dst++ = AL[accu & 0x3F];
+        *dst++ = PAD;
+        *dst++ = PAD;
+      }
+      return dst;
+    }
+    `
+});
+
+const mem = new WebAssembly.Memory({ initial: 3000 });
+const inst = wasmEncode({ env: { memory: mem } });
+const dd = new Uint8Array(mem.buffer);
+
+export function b64encode(d: Uint8Array): Uint8Array {
+  const chunkP = 150 * 65536;
+  dd.set(d, chunkP);
+  const end = inst.exports.enc(chunkP, d.length);
+  return dd.subarray(1024, end);
+}
