@@ -24,8 +24,8 @@ const enum P32 {
 /**
  * wasm base64 decoder.
  */
-const wasmDecode = InWasm({
-  name: 'decode',
+const b64Decode = InWasm({
+  name: 'b64decode',
   type: OutputType.INSTANCE,
   mode: OutputMode.SYNC,
   srctype: 'Clang-C',
@@ -254,7 +254,7 @@ const wasmDecode = InWasm({
 
 // FIXME: currently broken in inwasm
 type ExtractDefinition<Type> = Type extends () => IWasmInstance<infer X> ? X : never;
-type DecodeDefinition = ExtractDefinition<typeof wasmDecode>;
+type DecodeDefinition = ExtractDefinition<typeof b64Decode>;
 
 // base64 map
 const MAP = new Uint8Array(
@@ -328,7 +328,7 @@ export class Base64Decoder {
     const bytes = (Math.ceil(size / 3) + P32.STATE_DATA) * 4;
     if (!this._inst) {
       this._mem = new WebAssembly.Memory({ initial: Math.ceil(bytes / 65536) });
-      this._inst = wasmDecode({ env: { memory: this._mem } });
+      this._inst = b64Decode({ env: { memory: this._mem } });
       m = new Uint32Array(this._mem.buffer, 0);
       m.set(D, P32.D0);
       this._d = new Uint8Array(this._mem.buffer, P32.STATE_DATA * 4);
@@ -369,5 +369,133 @@ export class Base64Decoder {
    */
   public end(): number {
     return this._inst ? this._inst.exports.end() : 1;
+  }
+}
+
+
+
+const DST_P = 1024;
+
+const b64Encode = InWasm({
+  name: 'b64encode',
+  type: OutputType.INSTANCE,
+  mode: OutputMode.SYNC,
+  srctype: 'Clang-C',
+  imports: {
+    env: { memory: new WebAssembly.Memory({ initial: 1 }) }
+  },
+  exports: {
+    enc: (src: number, length: number) => 0
+  },
+  compile: {
+    switches: ['-Wl,-z,stack-size=0', '-Wl,--stack-first']
+  },
+  code: `
+    static unsigned char AL[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    static unsigned char PAD = '=';
+
+    void* enc(unsigned char *src, int length) {
+      unsigned char *dst = (unsigned char *) ${DST_P};
+
+      int pad = length % 3;
+      length -= pad;
+
+      unsigned char *src_end3 = src + length;
+      unsigned char a, b, c, d;
+      unsigned int accu;
+
+      while (src < src_end3) {
+        accu = src[0] << 16 | src[1] << 8 | src[2];
+        src += 3;
+        a = (accu      ) & 0x3F;
+        b = (accu >> 6 ) & 0x3F;
+        c = (accu >> 12) & 0x3F;
+        d = (accu >> 18) & 0x3F;
+        *dst++ = AL[d];
+        *dst++ = AL[c];
+        *dst++ = AL[b];
+        *dst++ = AL[a];
+      }
+      if (pad == 2) {
+        accu = src[0] << 8 | src[1];
+        accu <<= 2;
+        *dst++ = AL[accu >> 12];
+        *dst++ = AL[(accu >> 6) & 0x3F];
+        *dst++ = AL[accu & 0x3F];
+        *dst++ = PAD;
+      } else if (pad == 1) {
+        accu = src[0];
+        accu <<= 4;
+        *dst++ = AL[accu >> 6];
+        *dst++ = AL[accu & 0x3F];
+        *dst++ = PAD;
+        *dst++ = PAD;
+      }
+      return dst;
+    }
+    `
+});
+
+type B64Encode = ExtractDefinition<typeof b64Encode>;
+
+
+
+/**
+ * Base64 Encoder
+ *
+ * Other than the decoder, the encoder does not work with chunkwise loading.
+ * To simulate chunkwise encoding, split the data source in multiples of 3 bytes
+ * and concat the output afterwards.
+ *
+ * The implementation is pretty naive, and the performance with ~870 MB/s not that great.
+ * Similar to the decoder, the throughput could be increased by ~40% with a LUT-based approach
+ * (2x 16bit LUT[4096]), but the nasty LUT construction and 16kB memory overhead are
+ * not justified by such a small gain. If at all, a SIMD version might be the way to go,
+ * once Safari has better SIMD coverage.
+ *
+ * TODO:
+ * - tests
+ * - SIMD version
+ */
+export class Base64Encoder {
+  private _inst!: IWasmInstance<B64Encode>;
+  private _mem!: WebAssembly.Memory;
+  private _d!: Uint8Array;
+
+  constructor(public keepSize: number) {}
+
+  /**
+   * Encode bytes in `d` as base64.
+   * Returns encoded byte array (borrowed).
+   */
+  public encode(d: Uint8Array): Uint8Array {
+    const bytes = Math.ceil(d.length * 1.4) + DST_P;
+    if (!this._inst) {
+      this._mem = new WebAssembly.Memory({ initial: Math.ceil(bytes / 65536) });
+      this._inst = b64Encode({ env: { memory: this._mem } });
+    } else if (this._mem.buffer.byteLength < bytes) {
+      this._mem.grow(Math.ceil((bytes - this._mem.buffer.byteLength) / 65536));
+      this._d = null!;
+    }
+    if (!this._d) {
+      this._d = new Uint8Array(this._mem.buffer);
+    }
+    // put src data at the end of memory, also align to 256
+    const chunkP = (this._mem.buffer.byteLength - d.length) & ~0xFF;
+    this._d.set(d, chunkP);
+    const end = this._inst.exports.enc(chunkP, d.length);
+    return this._d.subarray(DST_P, end);
+  }
+
+  /**
+   * Release memory conditionally based on `keepSize`.
+   * If memory gets released, also the wasm instance will be freed and recreated on next `encode`,
+   * otherwise the instance will be reused.
+   */
+  public release(): void {
+    if (!this._inst) return;
+    if (this._mem.buffer.byteLength > this.keepSize) {
+      this._inst = this._d = this._mem = null!;
+    }
   }
 }

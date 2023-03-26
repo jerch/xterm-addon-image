@@ -223,7 +223,7 @@ export class ImageStorage implements IDisposable {
   /**
    * Method to add an image to the storage.
    */
-  public addImage(img: HTMLCanvasElement): void {
+  public addImage(img: HTMLCanvasElement | ImageBitmap): void {
     // never allow storage to exceed memory limit
     this._evictOldest(img.width * img.height);
 
@@ -232,8 +232,10 @@ export class ImageStorage implements IDisposable {
     if (cellSize.width === -1 || cellSize.height === -1) {
       cellSize = CELL_SIZE_DEFAULT;
     }
+    // cell coverage - ceil all to cover overprint pixels as well
+    // y-direction: height-1 to allow 1px overprint w'o cursor line progression
     const cols = Math.ceil(img.width / cellSize.width);
-    const rows = Math.ceil(img.height / cellSize.height);
+    const rows = Math.ceil((img.height - 1) / cellSize.height);
 
     const imageId = ++this._lastId;
 
@@ -480,6 +482,57 @@ export class ImageStorage implements IDisposable {
         return orig as HTMLCanvasElement;
       }
     }
+  }
+
+  // TODO: cleanup, merge with render? Extend it to an x*y dim extraction method?
+  private _lineCtx = ImageRenderer.createCanvas(window, 0, 0).getContext('2d', { willReadFrequently: true })!;
+  public extractLineCanvas(num: number): HTMLCanvasElement | undefined {
+    if (!this._images.size) return;
+
+    const buffer = this._terminal._core.buffer;
+    const cols = this._terminal._core.cols;
+    const line = buffer.lines.get(num) as IBufferLineExt;
+    if (!line) return;
+
+    const cw = this._renderer.dimensions?.css.cell.width || CELL_SIZE_DEFAULT.width;
+    const ch = this._renderer.dimensions?.css.cell.height || CELL_SIZE_DEFAULT.height;
+    const width = this._renderer.dimensions?.css.canvas.width || cw * this._terminal.cols;
+
+    this._lineCtx.canvas.width = width;
+    this._lineCtx.canvas.height = Math.ceil(ch);
+
+    let hasTiles = false;
+
+    for (let col = 0; col < cols; ++col) {
+      if (line.getBg(col) & BgFlags.HAS_EXTENDED) {
+        let e: IExtendedAttrsImage = line._extendedAttrs[col] || EMPTY_ATTRS;
+        const imageId = e.imageId;
+        if (imageId === undefined || imageId === -1) {
+          continue;
+        }
+        const imgSpec = this._images.get(imageId);
+        if (e.tileId !== -1) {
+          const startTile = e.tileId;
+          const startCol = col;
+          let count = 1;
+          while (
+            ++col < cols
+            && (line.getBg(col) & BgFlags.HAS_EXTENDED)
+            && (e = line._extendedAttrs[col] || EMPTY_ATTRS)
+            && (e.imageId === imageId)
+            && (e.tileId === startTile + count)
+          ) {
+            count++;
+          }
+          col--;
+          if (imgSpec && imgSpec.actual) {
+            this._renderer.lineDraw(this._lineCtx, imgSpec, startTile, startCol, num, count);
+            hasTiles = true;
+          }
+        }
+      }
+    }
+    if (hasTiles) return this._lineCtx.canvas;
   }
 
   /**

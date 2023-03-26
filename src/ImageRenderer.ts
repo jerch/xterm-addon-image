@@ -187,6 +187,39 @@ export class ImageRenderer implements IDisposable {
     );
   }
 
+  // TODO: cleanup, maybe merge with draw?
+  public lineDraw(ctx: CanvasRenderingContext2D, imgSpec: IImageSpec, tileId: number, col: number, row: number, count: number = 1): void {
+    const { width, height } = this.cellSize;
+
+    // Don't try to draw anything, if we cannot get valid renderer metrics.
+    if (width === -1 || height === -1) {
+      return;
+    }
+
+    this._rescaleImage(imgSpec, width, height);
+    const img = imgSpec.actual!;
+    const cols = Math.ceil(img.width / width);
+
+    const sx = (tileId % cols) * width;
+    const sy = Math.floor(tileId / cols) * height;
+    const dx = col * width;
+    // const dy = row * height;
+
+    // safari bug: never access image source out of bounds
+    const finalWidth = count * width + sx > img.width ? img.width - sx : count * width;
+    const finalHeight = sy + height > img.height ? img.height - sy : height;
+
+    // Floor all pixel offsets to get stable tile mapping without any overflows.
+    // Note: For not pixel perfect aligned cells like in the DOM renderer
+    // this will move a tile slightly to the top/left (subpixel range, thus ignore it).
+    // FIX #34: avoid striping on displays with pixelDeviceRatio != 1 by ceiling height and width
+    ctx.drawImage(
+      img,
+      Math.floor(sx), Math.floor(sy), Math.ceil(finalWidth), Math.ceil(finalHeight),
+      Math.floor(dx), 0, Math.ceil(finalWidth), Math.ceil(finalHeight)
+    );
+  }
+
   /**
    * Extract a single tile from an image.
    */
@@ -201,16 +234,26 @@ export class ImageRenderer implements IDisposable {
     const cols = Math.ceil(img.width / width);
     const sx = (tileId % cols) * width;
     const sy = Math.floor(tileId / cols) * height;
-    const finalWidth = width + sx > img.width ? img.width - sx : width;
-    const finalHeight = sy + height > img.height ? img.height - sy : height;
+
+    // Note on ceiling/flooring: We always floor left and ceil right borders
+    // for overprinting to avoid stitching artefact later on.
+    // This has a rather awkward downside of unstable tile dimensions (up to +2px)
+    // depending on the tile source position!
+    // This furthermore means, that any later composition from single tiles needs
+    // to shrink dimensions to fit back into place introducing resizing artefacts.
+    // Those resizing artefacts can be quite big for single cell tiles,
+    // as they have rather small base dimensions.
+    // FIXME: An better handling possible?
+    const finalWidth = Math.ceil(width + sx > img.width ? img.width - sx : width);
+    const finalHeight = Math.ceil(sy + height > img.height ? img.height - sy : height);
 
     const canvas = ImageRenderer.createCanvas(this._terminal._core._coreBrowserService.window, finalWidth, finalHeight);
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(
         img,
-        Math.floor(sx), Math.floor(sy), Math.floor(finalWidth), Math.floor(finalHeight),
-        0, 0, Math.floor(finalWidth), Math.floor(finalHeight)
+        Math.floor(sx), Math.floor(sy), finalWidth, finalHeight,
+        0, 0, finalWidth, finalHeight
       );
       return canvas;
     }

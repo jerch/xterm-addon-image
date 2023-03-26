@@ -28,6 +28,6 @@ jobs:
     - run: npm install yarn
     - run: |
         XTERMJS=5.1.0 IMAGEADDON=${{ github.head_ref || github.ref_name }} ./bootstrap.sh
-    - run: cd xterm-addon-image/xterm.js/addons/xterm-addon-image && node_modules/.bin/inwasm out/base64.wasm.js
+    - run: cd xterm-addon-image/xterm.js/addons/xterm-addon-image && node_modules/.bin/inwasm out/*.wasm.js
     - run: cd xterm-addon-image/xterm.js && yarn test
     - run: cd xterm-addon-image/xterm.js && yarn test-api-chromium --headless

@@ -9,6 +9,7 @@ import { ImageStorage, CELL_SIZE_DEFAULT } from './ImageStorage';
 import { Base64Decoder } from './base64.wasm';
 import { HeaderParser, IHeaderFields, HeaderState } from './IIPHeaderParser';
 import { imageType, UNSUPPORTED_TYPE } from './IIPMetrics';
+import { QoiDecoder } from './QoiDecoder.wasm';
 
 
 // eslint-disable-next-line
@@ -34,6 +35,7 @@ export class IIPHandler implements IOscHandler, IResetHandler {
   private _header: IHeaderFields = DEFAULT_HEADER;
   private _dec = new Base64Decoder(KEEP_DATA);
   private _metrics = UNSUPPORTED_TYPE;
+  private _qoiDec = new QoiDecoder(KEEP_DATA);
 
   constructor(
     private readonly _opts: IImageAddonOptions,
@@ -95,7 +97,8 @@ export class IIPHandler implements IOscHandler, IResetHandler {
           w = this._metrics.width;
           h = this._metrics.height;
           if (cond = w && h && w * h < this._opts.pixelLimit) {
-            [w, h] = this._resize(w, h).map(Math.floor);
+            // ceil here to allow a 1px overprint (avoid stitching artefacts)
+            [w, h] = this._resize(w, h).map(Math.ceil);
             cond = w && h && w * h < this._opts.pixelLimit;
           }
         }
@@ -106,26 +109,48 @@ export class IIPHandler implements IOscHandler, IResetHandler {
       return true;
     }
 
-    const blob = new Blob([this._dec.data8], { type: this._metrics.mime });
+    let blob: Blob | ImageData;
+    if (this._metrics.mime === 'image/qoi') {
+      const data = this._qoiDec.decode(this._dec.data8);
+      blob = new ImageData(
+        new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength),
+        this._qoiDec.width,
+        this._qoiDec.height
+      );
+      this._qoiDec.release();
+    } else {
+      blob = new Blob([this._dec.data8], { type: this._metrics.mime });
+    }
+
+    // const blob = new Blob([this._dec.data8], { type: this._metrics.mime });
     this._dec.release();
 
     const win = this._coreTerminal._core._coreBrowserService.window;
     if (!win.createImageBitmap) {
-      const url = URL.createObjectURL(blob);
-      const img = new Image();
-      return new Promise<boolean>(r => {
-        img.addEventListener('load', () => {
-          URL.revokeObjectURL(url);
-          const canvas = ImageRenderer.createCanvas(win, w, h);
-          canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
-          this._storage.addImage(canvas);
-          r(true);
+      if (blob instanceof Blob) {
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        return new Promise<boolean>(r => {
+          img.addEventListener('load', () => {
+            URL.revokeObjectURL(url);
+            const canvas = ImageRenderer.createCanvas(win, w, h);
+            canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
+            this._storage.addImage(canvas);
+            r(true);
+          });
+          img.src = url;
+          // sanity measure to avoid terminal blocking from dangling promise
+          // happens from corrupt data (onload never gets fired)
+          setTimeout(() => r(true), 1000);
         });
-        img.src = url;
-        // sanity measure to avoid terminal blocking from dangling promise
-        // happens from corrupt data (onload never gets fired)
-        setTimeout(() => r(true), 1000);
-      });
+      }
+      // qoi path
+      const c1 = ImageRenderer.createCanvas(win, this._metrics.width, this._metrics.height);
+      c1.getContext('2d')?.putImageData(blob, 0, 0);
+      const c2 = ImageRenderer.createCanvas(win, w, h);
+      c2.getContext('2d')?.drawImage(c1, 0, 0, this._metrics.width, this._metrics.height, 0, 0, w, h);
+      this._storage.addImage(c2);
+      return true;
     }
     return win.createImageBitmap(blob, { resizeWidth: w, resizeHeight: h })
       .then(bm => {
