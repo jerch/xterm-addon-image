@@ -221,7 +221,7 @@ export class ImageAddon implements ITerminalAddon {
 
   // overload DA to return something more appropriate
   private _da1(params: (number | number[])[]): boolean {
-    if (params[0] > 0) {
+    if (params[0]) {
       return true;
     }
     // reported features:
