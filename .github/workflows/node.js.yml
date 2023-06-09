@@ -16,7 +16,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [14.x]
+        node-version: [14.x, 16.x, 18.x]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
@@ -27,7 +27,7 @@ jobs:
         node-version: ${{ matrix.node-version }}
     - run: npm install yarn
     - run: |
-        XTERMJS=5.1.0 IMAGEADDON=${{ github.head_ref || github.ref_name }} ./bootstrap.sh
+        XTERMJS=5.2.0 IMAGEADDON=${{ github.head_ref || github.ref_name }} ./bootstrap.sh
     - run: cd xterm-addon-image/xterm.js/addons/xterm-addon-image && node_modules/.bin/inwasm out/base64.wasm.js
     - run: cd xterm-addon-image/xterm.js && yarn test
     - run: cd xterm-addon-image/xterm.js && yarn test-api-chromium --headless
