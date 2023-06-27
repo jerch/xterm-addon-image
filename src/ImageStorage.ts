@@ -330,6 +330,8 @@ export class ImageStorage implements IDisposable {
     if (!this._renderer.canvas) {
       return;
     }
+    // rescale if needed
+    this._renderer.rescaleCanvas();
     // exit early if we dont have any images to test for
     if (!this._images.size) {
       if (!this._fullyCleared) {
@@ -353,8 +355,6 @@ export class ImageStorage implements IDisposable {
 
     // clear drawing area
     this._renderer.clearLines(start, end);
-    // rescale if needed
-    this._renderer.rescaleCanvas();
 
     // walk all cells in viewport and draw tiles found
     for (let row = start; row <= end; ++row) {
