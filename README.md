@@ -8,7 +8,7 @@ Image output in xterm.js.
 
 ### Important note
 
-Version 0.4.1 will be the last version from this single repo.
+Version 0.4.x will be the last version from this single repo.
 Future versions will reside as addon in the xterm.js main repo.
 
 
