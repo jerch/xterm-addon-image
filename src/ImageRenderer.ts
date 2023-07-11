@@ -230,7 +230,7 @@ export class ImageRenderer implements IDisposable {
 
       if (!this._placeholder) {
         this._createPlaceHolder(Math.max(height + 1, PLACEHOLDER_HEIGHT));
-      }else if (height >= this._placeholder!.height) {
+      } else if (height >= this._placeholder!.height) {
         this._createPlaceHolder(height + 1);
       }
       if (!this._placeholder) return;
