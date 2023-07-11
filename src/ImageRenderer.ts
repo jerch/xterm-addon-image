@@ -58,7 +58,7 @@ export class ImageRenderer implements IDisposable {
   }
 
 
-  constructor(private _terminal: ITerminalExt, private _showPlaceholder: boolean) {
+  constructor(private _terminal: ITerminalExt) {
     this._oldOpen = this._terminal._core.open;
     this._terminal._core.open = (parent: HTMLElement): void => {
       this._oldOpen?.call(this._terminal._core, parent);
@@ -79,7 +79,7 @@ export class ImageRenderer implements IDisposable {
 
   public dispose(): void {
     this._optionsRefresh?.dispose();
-    this._removeLayerFromDom();
+    this.removeLayerFromDom();
     if (this._terminal._core && this._oldOpen) {
       this._terminal._core.open = this._oldOpen;
       this._oldOpen = undefined;
@@ -220,7 +220,7 @@ export class ImageRenderer implements IDisposable {
    * Draw a line with placeholder on the image layer canvas.
    */
   public drawPlaceholder(col: number, row: number, count: number = 1): void {
-    if ((this._placeholderBitmap || this._placeholder) && this._ctx) {
+    if (this._ctx) {
       const { width, height } = this.cellSize;
 
       // Don't try to draw anything, if we cannot get valid renderer metrics.
@@ -228,9 +228,12 @@ export class ImageRenderer implements IDisposable {
         return;
       }
 
-      if (height >= this._placeholder!.height) {
+      if (!this._placeholder) {
+        this._createPlaceHolder(Math.max(height + 1, PLACEHOLDER_HEIGHT));
+      }else if (height >= this._placeholder!.height) {
         this._createPlaceHolder(height + 1);
       }
+      if (!this._placeholder) return;
       this._ctx.drawImage(
         this._placeholderBitmap || this._placeholder!,
         col * width,
@@ -294,25 +297,27 @@ export class ImageRenderer implements IDisposable {
     this._renderService = this._terminal._core._renderService;
     this._oldSetRenderer = this._renderService.setRenderer.bind(this._renderService);
     this._renderService.setRenderer = (renderer: any) => {
-      this._removeLayerFromDom();
+      this.removeLayerFromDom();
       this._oldSetRenderer?.call(this._renderService, renderer);
-      this._insertLayerToDom();
     };
-    this._insertLayerToDom();
-    if (this._showPlaceholder) {
-      this._createPlaceHolder();
+  }
+
+  public insertLayerToDom(): void {
+    if (!this.canvas) {
+      this.canvas = ImageRenderer.createCanvas(this._terminal._core._coreBrowserService.window, this.dimensions?.css.canvas.width || 0, this.dimensions?.css.canvas.height || 0);
+      this.canvas.classList.add('xterm-image-layer');
+      this._terminal._core.screenElement?.appendChild(this.canvas);
+      this._ctx = this.canvas.getContext('2d', { alpha: true, desynchronized: true });
+      this.clearAll();
     }
   }
 
-  private _insertLayerToDom(): void {
-    this.canvas = ImageRenderer.createCanvas(this._terminal._core._coreBrowserService.window, this.dimensions?.css.canvas.width || 0, this.dimensions?.css.canvas.height || 0);
-    this.canvas.classList.add('xterm-image-layer');
-    this._terminal._core.screenElement?.appendChild(this.canvas);
-    this._ctx = this.canvas.getContext('2d', { alpha: true, desynchronized: true });
-  }
-
-  private _removeLayerFromDom(): void {
-    this.canvas?.parentNode?.removeChild(this.canvas);
+  public removeLayerFromDom(): void {
+    if (this.canvas) {
+      this._ctx = undefined;
+      this.canvas.parentNode?.removeChild(this.canvas);
+      this.canvas = undefined;
+    }
   }
 
   private _createPlaceHolder(height: number = PLACEHOLDER_HEIGHT): void {

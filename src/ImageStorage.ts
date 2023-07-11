@@ -326,9 +326,13 @@ export class ImageStorage implements IDisposable {
    */
   // TODO: Should we move this to the ImageRenderer?
   public render(range: { start: number, end: number }): void {
-    // exit early if we dont have a canvas
-    if (!this._renderer.canvas) {
-      return;
+    // setup image canvas in case we have none yet, but have images in store
+    if (!this._renderer.canvas && this._images.size) {
+      this._renderer.insertLayerToDom();
+      // safety measure - in case we cannot spawn a canvas at all, just exit
+      if (!this._renderer.canvas) {
+        return;
+      }
     }
     // rescale if needed
     this._renderer.rescaleCanvas();
@@ -338,6 +342,9 @@ export class ImageStorage implements IDisposable {
         this._renderer.clearAll();
         this._fullyCleared = true;
         this._needsFullClear = false;
+      }
+      if (this._renderer.canvas) {
+        this._renderer.removeLayerFromDom();
       }
       return;
     }
