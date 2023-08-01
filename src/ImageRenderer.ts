@@ -28,16 +28,17 @@ export class ImageRenderer implements IDisposable {
   private _oldSetRenderer: ((renderer: any) => void) | undefined;
 
   // drawing primitive - canvas
-  public static createCanvas(locaDocument: Document | undefined, width: number, height: number): HTMLCanvasElement {
+  public static createCanvas(localDocument: Document | undefined, width: number, height: number): HTMLCanvasElement {
     /**
-     * NOTE: We normally dont care, from which document the canvas gets created,
-     * so we can fall back to global document, if the terminal has no document
-     * associated yet. This way early image loads before calling .open keep working
+     * NOTE: We normally dont care, from which document the canvas
+     * gets created, so we can fall back to global document,
+     * if the terminal has no document associated yet.
+     * This way early image loads before calling .open keep working
      * (still discouraged though, as the metrics will be screwed up).
      * Only the DOM output canvas should be on the terminal's document,
      * which gets explicitly checked in `insertLayerToDom`.
      */
-    const canvas = (locaDocument || document).createElement('canvas');
+    const canvas = (localDocument || document).createElement('canvas');
     canvas.width = width | 0;
     canvas.height = height | 0;
     return canvas;
