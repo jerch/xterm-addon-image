@@ -100,13 +100,11 @@ export class SixelHandler implements IDcsHandler, IResetHandler {
 
     const doc = this._coreTerminal._core._coreBrowserService?.window.document;
     const canvas = ImageRenderer.createCanvas(doc, width, height);
-    if (canvas) {
-      canvas.getContext('2d')?.putImageData(new ImageData(this._dec.data8, width, height), 0, 0);
-      if (this._dec.memoryUsage > MEM_PERMA_LIMIT) {
-        this._dec.release();
-      }
-      this._storage.addImage(canvas);
+    canvas.getContext('2d')?.putImageData(new ImageData(this._dec.data8, width, height), 0, 0);
+    if (this._dec.memoryUsage > MEM_PERMA_LIMIT) {
+      this._dec.release();
     }
+    this._storage.addImage(canvas);
     return true;
   }
 }
