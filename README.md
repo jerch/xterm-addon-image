@@ -20,6 +20,7 @@ npm install --save xterm-addon-image
 
 ### Release Compatibility
 
+- 0.4.3 - compatible to xterm.js 5.2.0
 - 0.4.2 - compatible to xterm.js 5.2.0
 - 0.4.1 - compatible to xterm.js 5.2.0
 - 0.4.0 - compatible to xterm.js 5.1.0
@@ -243,6 +244,7 @@ _How can I adjust the memory usage?_
 
 ### Changelog
 
+- 0.4.3 defer canvas creation
 - 0.4.2 fix image canvas resize
 - 0.4.1 compat release for xterm.js 5.2.0
 - 0.4.0 IIP support
