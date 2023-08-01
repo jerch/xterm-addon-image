@@ -176,8 +176,7 @@ export class ImageStorage implements IDisposable {
     const spec = this._images.get(id);
     this._images.delete(id);
     // FIXME: really ugly workaround to get bitmaps deallocated :(
-    const win = this._terminal._core._coreBrowserService.window;
-    if (spec && win.ImageBitmap && spec.orig instanceof ImageBitmap) {
+    if (spec && window.ImageBitmap && spec.orig instanceof ImageBitmap) {
       spec.orig.close();
     }
   }
@@ -223,7 +222,7 @@ export class ImageStorage implements IDisposable {
   /**
    * Method to add an image to the storage.
    */
-  public addImage(img: HTMLCanvasElement): void {
+  public addImage(img: HTMLCanvasElement | ImageBitmap): void {
     // never allow storage to exceed memory limit
     this._evictOldest(img.width * img.height);
 
@@ -478,9 +477,8 @@ export class ImageStorage implements IDisposable {
       const e: IExtendedAttrsImage = line._extendedAttrs[x] || EMPTY_ATTRS;
       if (e.imageId && e.imageId !== -1) {
         const orig = this._images.get(e.imageId)?.orig;
-        const win = this._terminal._core._coreBrowserService.window;
-        if (win.ImageBitmap && orig instanceof ImageBitmap) {
-          const canvas = ImageRenderer.createCanvas(win, orig.width, orig.height);
+        if (window.ImageBitmap && orig instanceof ImageBitmap) {
+          const canvas = ImageRenderer.createCanvas(window.document, orig.width, orig.height);
           canvas.getContext('2d')?.drawImage(orig, 0, 0, orig.width, orig.height);
           return canvas;
         }
